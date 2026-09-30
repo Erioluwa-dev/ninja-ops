@@ -13,3 +13,10 @@ export function isHostile(a: Faction, b: Faction): boolean {
   const hostileToA: readonly Faction[] = HOSTILITY[a];
   return hostileToA.includes(b);
 }
+
+// Neutral is a valid target for anyone but never attacks, so the dummy can be
+// hit by the player without being hostile to it.
+export function canDamage(attacker: Faction, target: Faction): boolean {
+  if (attacker === "neutral") return false;
+  return target === "neutral" || isHostile(attacker, target);
+}
