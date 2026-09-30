@@ -24,6 +24,18 @@ function populate(
       target.addBinding(obj, key);
     } else if (isRecord(value)) {
       populate(target.addFolder({ title: key, expanded: false }), value);
+    } else if (Array.isArray(value) && value.some(isRecord)) {
+      // Modifier lists and wave lists hold records; index them so their params stay tunable.
+      const items: unknown[] = value;
+      const folder = target.addFolder({ title: key, expanded: false });
+      items.forEach((item, i) => {
+        if (isRecord(item)) {
+          populate(
+            folder.addFolder({ title: String(i), expanded: false }),
+            item,
+          );
+        }
+      });
     }
   }
 }
@@ -43,6 +55,8 @@ export function createTuningPanel(tuning: Tuning): TuningPanel {
   addSection(pane, "mobs", tuning.mobs);
   addSection(pane, "projectiles", tuning.projectiles);
   addSection(pane, "kits", tuning.kits);
+  addSection(pane, "elements", tuning.elements);
+  addSection(pane, "flow", tuning.flow);
   pane.hidden = true;
   return {
     toggle: () => {

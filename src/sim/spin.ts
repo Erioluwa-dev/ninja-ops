@@ -1,6 +1,7 @@
 import type { SpinData, SpinModifierData } from "../data/kits";
-import { getKit, type Tuning } from "../data/tuning";
+import { getElement, getKit, type Tuning } from "../data/tuning";
 import type { Box } from "./collision";
+import { radialBurstModifier, spawnHazardModifier } from "./hazards";
 import type { Entity, SimState } from "./types";
 
 export type SpinHook = "onSpinTick" | "onSpinEnd";
@@ -18,9 +19,12 @@ export type SpinModifierHandler = Partial<
   Record<SpinHook, (ctx: SpinHookContext) => void>
 >;
 
-// Empty until Phase 8: elements register a handler here and list a
-// SpinModifierData in the kit's hook arrays.
-export const SPIN_MODIFIERS: Record<string, SpinModifierHandler> = {};
+// Generic handlers only: an element (data/elements.ts) composes them by id and
+// params, so adding an element never touches this table.
+export const SPIN_MODIFIERS: Record<string, SpinModifierHandler> = {
+  spawnHazard: spawnHazardModifier,
+  radialBurst: radialBurstModifier,
+};
 
 function runList(
   state: SimState,
@@ -49,6 +53,15 @@ export function runSpinHooks(
   hook: SpinHook,
 ): void {
   runList(state, entity, spin, spin[hook], hook);
+  if (entity.element !== null) {
+    runList(
+      state,
+      entity,
+      spin,
+      getElement(state.tuning, entity.element)[hook],
+      hook,
+    );
+  }
 }
 
 export function spinDataOf(tuning: Tuning, e: Entity): SpinData | null {

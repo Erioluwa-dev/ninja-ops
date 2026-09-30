@@ -1,5 +1,7 @@
 import { ATTACKS, type AttackData } from "./attacks";
 import { COMBAT, type CombatData } from "./combat";
+import { ELEMENTS, type ElementData } from "./elements";
+import { FLOW, type FlowData } from "./flow";
 import { KITS, type KitData } from "./kits";
 import { MOBS, type MobData } from "./mobs";
 import { PROJECTILES, type ProjectileData } from "./projectiles";
@@ -11,6 +13,8 @@ export interface Tuning {
   mobs: Record<string, MobData>;
   projectiles: Record<string, ProjectileData>;
   combat: CombatData;
+  elements: Record<string, ElementData>;
+  flow: FlowData;
 }
 
 export function createTuning(): Tuning {
@@ -20,6 +24,8 @@ export function createTuning(): Tuning {
     mobs: structuredClone(MOBS),
     projectiles: structuredClone(PROJECTILES),
     combat: structuredClone(COMBAT),
+    elements: structuredClone(ELEMENTS),
+    flow: structuredClone(FLOW),
   };
 }
 
@@ -48,4 +54,10 @@ export function getProjectile(
   const projectile = tuning.projectiles[projectileId];
   if (!projectile) throw new Error(`Unknown projectile id: ${projectileId}`);
   return projectile;
+}
+
+export function getElement(tuning: Tuning, elementId: string): ElementData {
+  const element = tuning.elements[elementId];
+  if (!element) throw new Error(`Unknown element id: ${elementId}`);
+  return element;
 }

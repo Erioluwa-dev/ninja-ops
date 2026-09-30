@@ -26,6 +26,8 @@ export function createCombatState(tuning: Tuning): CombatState {
     spinMeter: 0,
     spinFrame: 0,
     spinHitCd: {},
+    hazardHitCd: {},
+    hitsTaken: 0,
     knock: { x: 0, y: 0 },
   };
 }
@@ -56,6 +58,7 @@ export function createEntity(
             move: null,
             moveSpin: false,
           },
+    element: null,
     faction,
     kitId,
     pos: { x: pos.x, y: pos.y },
