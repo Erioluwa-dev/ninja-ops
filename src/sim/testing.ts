@@ -44,3 +44,17 @@ export function holdRange(
   for (let t = from; t < to; t++) script[t] = held;
   return script;
 }
+
+/** Puts an entity mid-swing at frame 0 of `attackId`, bypassing the AI and the kit's own move list. */
+export function forceAttack(
+  entity: Entity,
+  attackId: string,
+  facing: { x: number; y: number },
+): void {
+  entity.state = "attack";
+  entity.facing = { ...facing };
+  entity.combat.attackId = attackId;
+  entity.combat.attackFrame = 0;
+  entity.combat.comboIndex = 0;
+  entity.combat.attackHits = [];
+}

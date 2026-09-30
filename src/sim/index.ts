@@ -1,5 +1,6 @@
 export { canDamage, isHostile } from "../data/factions";
 export { isSolidTile, tileCenter } from "./arena";
+export { isArmored } from "./armor";
 export {
   activeHitbox,
   attackPhase,
@@ -10,6 +11,7 @@ export {
 export { type Box, feetBox, moveAndCollide } from "./collision";
 export { depthOrder } from "./depth";
 export { createEntity } from "./entity";
+export { isAirborne } from "./jump";
 export { projectileBox } from "./projectiles";
 export { nextFloat } from "./rng";
 export { spawnMob, spawnWave } from "./spawner";

@@ -8,6 +8,8 @@ import {
   type Faction,
   feetBox,
   holdsToken,
+  isAirborne,
+  isArmored,
   isSolidTile,
   projectileBox,
   type SimState,
@@ -27,6 +29,8 @@ const FACTION_COLOR: Record<Faction, number> = {
 const MOB_COLOR: Record<string, number> = {
   melee: 0xd83a3a,
   ranged: 0xb04ad8,
+  sweeper: 0xd8883a,
+  oniBrute: 0x8a2a2a,
 };
 const PROJECTILE = 0xff7a3a;
 const SPIN_RING = 0xbff4ff;
@@ -41,6 +45,10 @@ const HITBOX = 0x40ff70;
 const ATTACK_BOX = 0xff4040;
 const FLASH = 0xffffff;
 const TELEGRAPH = 0xff8a30;
+const SWEEP_TELEGRAPH = 0xffc040;
+const UNBLOCKABLE = 0xff1e1e;
+const ARMOR = 0xc8c8d8;
+const BOSS_BAR = 0xd83a3a;
 const STAGGER = 0xffe060;
 const GUARD_BREAK = 0xa060ff;
 const SHIELD = 0x9fe8ff;
@@ -53,6 +61,8 @@ const BAR_BACK = 0x000000;
 const HP_BAR_W = 16;
 const HUD_BAR_W = 60;
 const HUD_BAR_X = 10;
+const BOSS_BAR_W = 160;
+const BOSS_BAR_Y = 150;
 
 const LABEL_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
   fontFamily: "monospace",
@@ -70,6 +80,7 @@ export class SimRenderer {
   private readonly gfx: Phaser.GameObjects.Graphics;
   private readonly hud: Phaser.GameObjects.Text;
   private readonly pausedLabel: Phaser.GameObjects.Text;
+  private readonly bossLabel: Phaser.GameObjects.Text;
   private readonly defeatedLabel: Phaser.GameObjects.Text;
   private readonly labels = new Map<number, Phaser.GameObjects.Text>();
   private debug = false;
@@ -77,11 +88,16 @@ export class SimRenderer {
   constructor(private readonly scene: Phaser.Scene) {
     this.gfx = scene.add.graphics();
     this.hud = scene.add
-      .text(2, 148, "", LABEL_STYLE)
+      .text(2, 141, "", LABEL_STYLE)
       .setDepth(1000)
       .setVisible(false);
     scene.add.text(1, 0, "G", LABEL_STYLE).setDepth(1000).setColor("#50c8ff");
     scene.add.text(1, 8, "S", LABEL_STYLE).setDepth(1000).setColor("#ffd040");
+    this.bossLabel = scene.add
+      .text(scene.scale.width / 2, BOSS_BAR_Y - 1, "", LABEL_STYLE)
+      .setOrigin(0.5, 1)
+      .setDepth(1000)
+      .setVisible(false);
     this.defeatedLabel = scene.add
       .text(scene.scale.width / 2, scene.scale.height / 2 - 20, "DEFEATED", {
         ...LABEL_STYLE,
@@ -139,7 +155,22 @@ export class SimRenderer {
     if (!attack?.telegraph) return;
     const box = telegraphBox(e, state.tuning);
     const progress = (e.combat.attackFrame + 1) / attack.startup;
-    if (box) {
+    if (box && attack.unblockable) {
+      // Red and strobing is reserved for "block will not save you".
+      const lit = blinkOn(state.tick, 3);
+      g.fillStyle(lit ? UNBLOCKABLE : FLASH, lit ? 0.35 + 0.4 * progress : 0.5);
+      g.fillRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+    } else if (box && attack.sweep) {
+      this.drawSweepBar(e, box, progress);
+    } else if (box && attack.ground) {
+      // A slam has no front: pulse an outline around the whole area.
+      const w = box.maxX - box.minX;
+      const h = box.maxY - box.minY;
+      g.fillStyle(SWEEP_TELEGRAPH, 0.1 + 0.25 * progress);
+      g.fillRect(box.minX, box.minY, w, h);
+      g.lineStyle(1, SWEEP_TELEGRAPH, 0.9);
+      g.strokeRect(box.minX + 0.5, box.minY + 0.5, w - 1, h - 1);
+    } else if (box) {
       g.fillStyle(TELEGRAPH, 0.15 + 0.35 * progress);
       g.fillRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
     } else if (attack.projectile !== undefined && progress <= 1) {
@@ -153,6 +184,30 @@ export class SimRenderer {
       const y =
         e.facing.y > 0 ? e.pos.y : e.facing.y < 0 ? e.pos.y - len : e.pos.y - 1;
       g.fillRect(x, y, w, h);
+    }
+  }
+
+  // A sweep is wide and low: outline the whole reach, then fill a thin bar
+  // that advances from the attacker's feet as the windup runs out.
+  private drawSweepBar(
+    e: Entity,
+    box: { minX: number; maxX: number; minY: number; maxY: number },
+    progress: number,
+  ): void {
+    const g = this.gfx;
+    const w = box.maxX - box.minX;
+    const h = box.maxY - box.minY;
+    g.lineStyle(1, SWEEP_TELEGRAPH, 0.6);
+    g.strokeRect(box.minX + 0.5, box.minY + 0.5, w - 1, h - 1);
+    g.fillStyle(SWEEP_TELEGRAPH, 0.35 + 0.4 * progress);
+    if (e.facing.x !== 0) {
+      const reach = w * progress;
+      const x = e.facing.x > 0 ? box.minX : box.maxX - reach;
+      g.fillRect(x, box.minY, reach, h);
+    } else {
+      const reach = h * progress;
+      const y = e.facing.y > 0 ? box.minY : box.maxY - reach;
+      g.fillRect(box.minX, y, w, reach);
     }
   }
 
@@ -180,7 +235,10 @@ export class SimRenderer {
       this.drawDizzy(state, e);
     }
     this.drawProjectiles(state);
-    for (const e of ordered) if (e.state !== "dead") this.drawHpBar(e);
+    for (const e of ordered) {
+      if (e.state !== "dead" && !this.isBoss(state, e)) this.drawHpBar(e);
+    }
+    this.drawBossBar(state, ordered);
     this.defeatedLabel.setVisible(state.defeated);
 
     const player = state.entities.find((e) => e.kind === "player");
@@ -277,7 +335,10 @@ export class SimRenderer {
       attack?.telegraph &&
       attackPhase(attack, e.combat.attackFrame) === "startup"
     ) {
-      return TELEGRAPH;
+      if (attack.unblockable) {
+        return blinkOn(state.tick, 3) ? UNBLOCKABLE : FLASH;
+      }
+      return attack.ground ? SWEEP_TELEGRAPH : TELEGRAPH;
     }
     if (e.mobType !== null)
       return MOB_COLOR[e.mobType] ?? FACTION_COLOR[e.faction];
@@ -322,11 +383,24 @@ export class SimRenderer {
     const left = e.pos.x - e.feet.w / 2;
     const top = footBottom - e.z - e.bodyHeight;
 
-    g.fillStyle(SHADOW, 0.35);
-    g.fillRect(left, e.pos.y - e.feet.h / 2, e.feet.w, e.feet.h);
+    // The shadow stays on the ground and shrinks as the body rises, which is
+    // what tells the eye how high a jump is.
+    const lift = Math.min(0.5, e.z / 60);
+    g.fillStyle(SHADOW, 0.4 * (1 - lift));
+    g.fillEllipse(
+      e.pos.x,
+      e.pos.y,
+      (e.feet.w + 4) * (1 - lift),
+      (e.feet.h + 2) * (1 - lift),
+    );
 
     g.fillStyle(this.bodyColor(state, e), this.bodyAlpha(state, e));
     g.fillRect(left, top, e.feet.w, e.bodyHeight);
+
+    if (isArmored(e, state.tuning)) {
+      g.lineStyle(1, ARMOR, 1);
+      g.strokeRect(left + 0.5, top + 0.5, e.feet.w - 1, e.bodyHeight - 1);
+    }
 
     // A facing nub: without it, block direction and attack aim are unreadable.
     g.fillStyle(EYE, 1);
@@ -346,6 +420,32 @@ export class SimRenderer {
         g.fillRect(left - 1, y, e.feet.w + 2, 2);
       }
     }
+  }
+
+  private isBoss(state: SimState, e: Entity): boolean {
+    return e.mobType !== null && state.tuning.mobs[e.mobType]?.bossBar === true;
+  }
+
+  private drawBossBar(state: SimState, entities: readonly Entity[]): void {
+    const boss = entities.find(
+      (e) => e.state !== "dead" && this.isBoss(state, e),
+    );
+    this.bossLabel.setVisible(boss !== undefined);
+    if (!boss) return;
+    const g = this.gfx;
+    const x = Math.round(
+      (state.arena.cols * state.arena.tileSize - BOSS_BAR_W) / 2,
+    );
+    g.fillStyle(BAR_BACK, 0.8);
+    g.fillRect(x - 1, BOSS_BAR_Y, BOSS_BAR_W + 2, 6);
+    g.fillStyle(BOSS_BAR, 1);
+    g.fillRect(
+      x,
+      BOSS_BAR_Y + 1,
+      Math.round((BOSS_BAR_W * boss.hp) / boss.maxHp),
+      4,
+    );
+    this.bossLabel.setText(boss.kitId);
   }
 
   private drawHpBar(e: Entity): void {
@@ -400,11 +500,14 @@ export class SimRenderer {
       this.labels.set(e.id, label);
     }
     const attack = currentAttack(e, state.tuning);
+    const air = isAirborne(e, state.tuning) ? " AIR" : "";
     const detail = attack
       ? ` ${e.combat.comboIndex + 1}${attackPhase(attack, e.combat.attackFrame)[0]}`
       : "";
     label
-      .setText(`${e.state}${detail}${e.ai ? ` ${e.ai.mode}` : ""}`)
+      .setText(
+        `${e.state}${air}${detail}${e.ai ? ` ${e.ai.mode}` : ""}${e.z > 0 ? ` z${e.z.toFixed(0)}` : ""}`,
+      )
       .setPosition(
         Math.round(e.pos.x),
         Math.round(e.pos.y + e.feet.h / 2 - e.z - e.bodyHeight - 6),

@@ -1,8 +1,10 @@
-import type { HitData } from "../data/attacks";
+import type { AttackData, HitData } from "../data/attacks";
 import { canDamage } from "../data/factions";
 import { getAttack, getKit, type Tuning } from "../data/tuning";
+import { armorScale } from "./armor";
 import { activeHitbox, currentAttack } from "./attack";
 import { boxesOverlap, feetBox } from "./collision";
+import { isAirborne } from "./jump";
 import { projectileBox } from "./projectiles";
 import { spinBox, spinDataOf } from "./spin";
 import { enterDead, enterStun } from "./states";
@@ -16,6 +18,9 @@ interface Contact {
   attacker: Entity | null;
   target: Entity;
   hit: HitData;
+  /** The attack behind the hit; null for a spin. */
+  attack: AttackData | null;
+  fromSpin: boolean;
   /** Where the blow comes from, for the block-facing check. */
   origin: Vec2;
   knockDir: Vec2;
@@ -49,23 +54,31 @@ function applyDamage(contact: Contact, tuning: Tuning): void {
   const { counter, meters } = tuning.combat;
   const kit = getKit(tuning, target.kitId);
   const isCounter = attacker?.combat.attackCounter ?? false;
-  const damage =
+  const armor = armorScale(target, contact.fromSpin, tuning);
+  const baseDamage =
     isCounter && counter.bonusDamage
       ? hit.damage * counter.damageMultiplier
       : hit.damage;
 
-  target.hp = Math.max(kit.hpFloor, target.hp - damage);
+  target.hp = Math.max(kit.hpFloor, target.hp - baseDamage * (armor ?? 1));
   target.combat.hpRegenDelay = kit.regenDelay;
-  target.combat.knock = {
-    x: knockDir.x * hit.knockback,
-    y: knockDir.y * hit.knockback,
-  };
-  if (isCounter && counter.stagger) {
-    enterStun(target, "stagger", counter.staggerFrames);
-  } else {
-    enterStun(target, "hurt", kit.hurtStun);
+  // Super armor takes the damage but shrugs off the knockback and the flinch.
+  if (armor === null) {
+    const spinBreak = contact.attack?.spinBreakStun ?? 0;
+    const wasSpinning = target.state === "spin";
+    target.combat.knock = {
+      x: knockDir.x * hit.knockback,
+      y: knockDir.y * hit.knockback,
+    };
+    if (wasSpinning && spinBreak > 0) {
+      enterStun(target, "dizzy", spinBreak);
+    } else if (isCounter && counter.stagger) {
+      enterStun(target, "stagger", counter.staggerFrames);
+    } else {
+      enterStun(target, "hurt", kit.hurtStun);
+    }
+    target.combat.hurtIframes = kit.hurtIframes;
   }
-  target.combat.hurtIframes = kit.hurtIframes;
   // Spent on the first hit that connects so one counter can't multiply.
   if (attacker && isCounter) attacker.combat.attackCounter = false;
   if (attacker && contact.feedsSpin && getKit(tuning, attacker.kitId).spin) {
@@ -84,8 +97,9 @@ function resolveContact(contact: Contact, tuning: Tuning): HitOutcome {
 
   if (target.state === "dodge" && tc.dodgeFrame < dodge.iframes) {
     // Only a perfect dodge marks the hit as spent; an ordinary dodge leaves the
-    // attack live so a long active window can still catch the dodger later.
-    if (tc.dodgeFrame < dodge.perfectWindow) {
+    // attack live so a long active window can still catch the dodger later. A
+    // sweep never counts as perfect, or a well-timed dodge would beat it.
+    if (!contact.attack?.sweep && tc.dodgeFrame < dodge.perfectWindow) {
       contact.spend();
       openCounterWindow(target, tuning);
       tc.spinMeter = Math.min(
@@ -137,11 +151,14 @@ function meleeContacts(state: SimState, out: Contact[]): void {
       if (target === attacker || target.state === "dead") continue;
       if (!canDamage(attacker.faction, target.faction)) continue;
       if (attacker.combat.attackHits.includes(target.id)) continue;
+      if (isAirborne(target, tuning) && !attack.hitsAir) continue;
       if (!boxesOverlap(box, feetBox(target))) continue;
       out.push({
         attacker,
         target,
         hit: attack,
+        attack,
+        fromSpin: false,
         origin: attacker.pos,
         knockDir: attacker.facing,
         parryable: true,
@@ -162,6 +179,8 @@ function spinContacts(state: SimState, out: Contact[]): void {
       if (target === attacker || target.state === "dead") continue;
       if (!canDamage(attacker.faction, target.faction)) continue;
       if ((attacker.combat.spinHitCd[target.id] ?? 0) > 0) continue;
+      // A spin sweeps the ground around the feet, so a jump clears it.
+      if (isAirborne(target, tuning)) continue;
       if (!boxesOverlap(box, feetBox(target))) continue;
       const away = normalized({
         x: target.pos.x - attacker.pos.x,
@@ -171,6 +190,8 @@ function spinContacts(state: SimState, out: Contact[]): void {
         attacker,
         target,
         hit: spin.hit,
+        attack: null,
+        fromSpin: true,
         origin: attacker.pos,
         knockDir: away.x === 0 && away.y === 0 ? attacker.facing : away,
         parryable: false,
@@ -195,13 +216,15 @@ function projectileContacts(state: SimState): void {
       if (p.life <= 0) break;
       if (target.state === "dead" || p.spent.includes(target.id)) continue;
       if (!canDamage(p.faction, target.faction)) continue;
-      if (target.z > 0 && !data.hitsAir) continue;
+      if (isAirborne(target, tuning) && !data.hitsAir) continue;
       if (!boxesOverlap(box, feetBox(target))) continue;
       const outcome = resolveContact(
         {
           attacker: null,
           target,
           hit,
+          attack: hit,
+          fromSpin: false,
           origin: p.pos,
           knockDir: dir,
           parryable: true,
