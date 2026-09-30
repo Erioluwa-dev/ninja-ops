@@ -1,4 +1,4 @@
-import { getKit, type Tuning } from "../data/tuning";
+import { getKit, getMob, type Tuning } from "../data/tuning";
 import type { CombatState, Entity } from "./types";
 
 export function createCombatState(tuning: Tuning): CombatState {
@@ -22,6 +22,8 @@ export function createCombatState(tuning: Tuning): CombatState {
     hpRegenDelay: 0,
     counterWindow: 0,
     spinMeter: 0,
+    spinFrame: 0,
+    spinHitCd: {},
     knock: { x: 0, y: 0 },
   };
 }
@@ -34,11 +36,22 @@ export function createEntity(
   pos: { x: number; y: number },
   facing: { x: number; y: number },
   tuning: Tuning,
+  mobType: string | null = null,
 ): Entity {
   const kit = getKit(tuning, kitId);
   return {
     id,
     kind,
+    mobType,
+    ai:
+      mobType === null
+        ? null
+        : {
+            mode: "idle",
+            timer: getMob(tuning, mobType).reactionDelay,
+            patience: 0,
+            strafe: 1,
+          },
     faction,
     kitId,
     pos: { x: pos.x, y: pos.y },

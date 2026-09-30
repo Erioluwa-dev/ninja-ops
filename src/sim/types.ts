@@ -32,9 +32,11 @@ export type EntityState =
   | "dodge"
   | "jump"
   | "spin"
+  | "dizzy"
   | "stagger"
   | "guardBreak"
-  | "hurt";
+  | "hurt"
+  | "dead";
 
 export type AttackPhase = "startup" | "active" | "recovery";
 
@@ -42,7 +44,7 @@ export type AttackPhase = "startup" | "active" | "recovery";
 export interface CombatState {
   /** Freeze frames left; a frozen entity advances no timers and does not move. */
   hitstop: number;
-  /** Frames left in hurt, stagger or guard break. */
+  /** Frames left in hurt, stagger, guard break or dizzy; a corpse's frames until removal. */
   stun: number;
   hurtIframes: number;
   attackId: string | null;
@@ -62,13 +64,40 @@ export interface CombatState {
   hpRegenDelay: number;
   counterWindow: number;
   spinMeter: number;
+  /** Frames spent in the current spin. */
+  spinFrame: number;
+  /** Frames until a spinner may hit each target id again. */
+  spinHitCd: Record<number, number>;
   /** Px/s impulse that decays each tick; still collides with walls. */
   knock: Vec2;
 }
 
+export type MobMode =
+  | "idle"
+  | "chase"
+  | "reposition"
+  | "circle"
+  | "telegraph"
+  | "attack"
+  | "recover";
+
+/** Brain state of a mob; the body's state machine stays in Entity.state. */
+export interface MobAi {
+  mode: MobMode;
+  /** Reaction delay, token retry or post-attack cooldown, depending on mode. */
+  timer: number;
+  /** Frames left to start an attack before a held token is given back. */
+  patience: number;
+  /** Circling direction, 1 or -1. */
+  strafe: number;
+}
+
 export interface Entity {
   id: number;
-  kind: "player" | "dummy";
+  /** Which driver feeds intents: input, a script, or the mob AI. */
+  kind: "player" | "dummy" | "mob";
+  mobType: string | null;
+  ai: MobAi | null;
   faction: Faction;
   kitId: string;
   /** Feet center on the ground plane. */
@@ -88,11 +117,38 @@ export interface Entity {
   aiTimer: number;
 }
 
+export interface Projectile {
+  id: number;
+  /** Key into tuning.projectiles. */
+  kind: string;
+  ownerId: number;
+  faction: Faction;
+  pos: Vec2;
+  /** Px/s. */
+  vel: Vec2;
+  /** Frames until it expires. */
+  life: number;
+  /** Target ids it has passed through (a perfect dodge). */
+  spent: number[];
+  deflected: boolean;
+}
+
+export interface TokenHold {
+  entityId: number;
+  weight: number;
+}
+
 export interface SimState {
   tick: number;
   rngState: number;
+  nextId: number;
   arena: Arena;
   entities: Entity[];
+  projectiles: Projectile[];
+  /** Attack tokens currently held; capacity comes from tuning. */
+  tokens: TokenHold[];
+  /** The input-driven entity has died; the scene owns what happens next. */
+  defeated: boolean;
   tuning: Tuning;
   /** Last tick's input, so presses are derived as rising edges inside the sim. */
   prevInput: ActionFrame;

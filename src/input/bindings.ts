@@ -10,9 +10,10 @@ export interface Bindings {
     down: readonly string[];
     actions: Record<ButtonAction, readonly string[]>;
     debug: readonly string[];
-    /** Dev tools: F1 toggles the tuning panel, F2 the dummy's scripted attack. */
+    /** Dev tools: F1 toggles the tuning panel, F2 the dummy's scripted attack, F3 spawns a wave. */
     tuningPanel: readonly string[];
     dummyAttack: readonly string[];
+    spawnWave: readonly string[];
   };
   gamepad: {
     dpad: { left: number; right: number; up: number; down: number };
@@ -36,12 +37,13 @@ export const DEFAULT_BINDINGS: Bindings = {
       dodge: ["KeyK"],
       jump: ["Space"],
       block: ["KeyL"],
-      spin: ["KeyI"],
+      spin: ["KeyI", "KeyR"],
       pause: ["Escape"],
     },
     debug: ["Backquote"],
     tuningPanel: ["F1"],
     dummyAttack: ["F2"],
+    spawnWave: ["F3"],
   },
   gamepad: {
     dpad: { up: 12, down: 13, left: 14, right: 15 },

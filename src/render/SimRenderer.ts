@@ -7,8 +7,14 @@ import {
   type Entity,
   type Faction,
   feetBox,
+  holdsToken,
   isSolidTile,
+  projectileBox,
   type SimState,
+  spinBox,
+  telegraphBox,
+  tokenCapacity,
+  tokensInUse,
 } from "../sim";
 
 const FACTION_COLOR: Record<Faction, number> = {
@@ -16,6 +22,17 @@ const FACTION_COLOR: Record<Faction, number> = {
   oni: 0xd83a3a,
   neutral: 0xc8b04a,
 };
+
+// Mobs are told apart by type, not just faction.
+const MOB_COLOR: Record<string, number> = {
+  melee: 0xd83a3a,
+  ranged: 0xb04ad8,
+};
+const PROJECTILE = 0xff7a3a;
+const SPIN_RING = 0xbff4ff;
+const SPIN_READY = 0xfff0a0;
+const DIZZY = 0xffe060;
+const TOKEN = 0xffd040;
 
 const FLOOR = 0x1c1c2a;
 const WALL = 0x4a4a66;
@@ -53,6 +70,7 @@ export class SimRenderer {
   private readonly gfx: Phaser.GameObjects.Graphics;
   private readonly hud: Phaser.GameObjects.Text;
   private readonly pausedLabel: Phaser.GameObjects.Text;
+  private readonly defeatedLabel: Phaser.GameObjects.Text;
   private readonly labels = new Map<number, Phaser.GameObjects.Text>();
   private debug = false;
 
@@ -64,6 +82,15 @@ export class SimRenderer {
       .setVisible(false);
     scene.add.text(1, 0, "G", LABEL_STYLE).setDepth(1000).setColor("#50c8ff");
     scene.add.text(1, 8, "S", LABEL_STYLE).setDepth(1000).setColor("#ffd040");
+    this.defeatedLabel = scene.add
+      .text(scene.scale.width / 2, scene.scale.height / 2 - 20, "DEFEATED", {
+        ...LABEL_STYLE,
+        fontSize: "16px",
+        color: "#ff6060",
+      })
+      .setOrigin(0.5)
+      .setDepth(2000)
+      .setVisible(false);
     this.pausedLabel = scene.add
       .text(scene.scale.width / 2, scene.scale.height / 2, "PAUSED", {
         ...LABEL_STYLE,
@@ -72,6 +99,61 @@ export class SimRenderer {
       .setOrigin(0.5)
       .setDepth(2000)
       .setVisible(false);
+  }
+
+  private drawSpin(state: SimState, e: Entity): void {
+    const box = spinBox(e, state.tuning);
+    if (!box) return;
+    const g = this.gfx;
+    const cx = e.pos.x;
+    const cy = e.pos.y;
+    const r = (box.maxX - box.minX) / 2;
+    g.lineStyle(1, SPIN_RING, blinkOn(state.tick, 2) ? 1 : 0.6);
+    g.strokeRect(box.minX + 0.5, box.minY + 0.5, r * 2 - 1, r * 2 - 1);
+    const a = state.tick * 0.6;
+    for (const off of [0, Math.PI / 2]) {
+      const dx = Math.cos(a + off) * r;
+      const dy = Math.sin(a + off) * r;
+      g.lineBetween(cx - dx, cy - dy, cx + dx, cy + dy);
+    }
+  }
+
+  private drawDizzy(state: SimState, e: Entity): void {
+    if (e.state !== "dizzy") return;
+    const top = e.pos.y + e.feet.h / 2 - e.z - e.bodyHeight;
+    this.gfx.fillStyle(DIZZY, 1);
+    for (let i = 0; i < 3; i++) {
+      const a = state.tick * 0.2 + (i * Math.PI * 2) / 3;
+      this.gfx.fillRect(
+        Math.round(e.pos.x + Math.cos(a) * 6) - 1,
+        Math.round(top - 2 + Math.sin(a) * 2) - 1,
+        2,
+        2,
+      );
+    }
+  }
+
+  private drawTelegraph(state: SimState, e: Entity): void {
+    const g = this.gfx;
+    const attack = currentAttack(e, state.tuning);
+    if (!attack?.telegraph) return;
+    const box = telegraphBox(e, state.tuning);
+    const progress = (e.combat.attackFrame + 1) / attack.startup;
+    if (box) {
+      g.fillStyle(TELEGRAPH, 0.15 + 0.35 * progress);
+      g.fillRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+    } else if (attack.projectile !== undefined && progress <= 1) {
+      // A projectile has no box yet, so show the lane it will fly along.
+      const len = 120 * progress;
+      g.fillStyle(TELEGRAPH, 0.2 + 0.3 * progress);
+      const w = e.facing.x !== 0 ? len : 2;
+      const h = e.facing.x !== 0 ? 2 : len;
+      const x =
+        e.facing.x > 0 ? e.pos.x : e.facing.x < 0 ? e.pos.x - len : e.pos.x - 1;
+      const y =
+        e.facing.y > 0 ? e.pos.y : e.facing.y < 0 ? e.pos.y - len : e.pos.y - 1;
+      g.fillRect(x, y, w, h);
+    }
   }
 
   toggleDebug(): void {
@@ -91,8 +173,15 @@ export class SimRenderer {
     this.drawArena(state);
 
     const ordered = depthOrder(state.entities);
-    for (const e of ordered) this.drawEntity(state, e);
-    for (const e of ordered) this.drawHpBar(e);
+    for (const e of ordered) this.drawTelegraph(state, e);
+    for (const e of ordered) {
+      this.drawEntity(state, e);
+      this.drawSpin(state, e);
+      this.drawDizzy(state, e);
+    }
+    this.drawProjectiles(state);
+    for (const e of ordered) if (e.state !== "dead") this.drawHpBar(e);
+    this.defeatedLabel.setVisible(state.defeated);
 
     const player = state.entities.find((e) => e.kind === "player");
     if (player) this.drawMeters(state, player);
@@ -107,6 +196,28 @@ export class SimRenderer {
         b.maxX - b.minX - 1,
         b.maxY - b.minY - 1,
       );
+      if (holdsToken(state, e)) {
+        g.fillStyle(TOKEN, 1);
+        const top = e.pos.y + e.feet.h / 2 - e.z - e.bodyHeight;
+        g.fillTriangle(
+          e.pos.x,
+          top - 9,
+          e.pos.x - 3,
+          top - 13,
+          e.pos.x + 3,
+          top - 13,
+        );
+      }
+      const spinArea = spinBox(e, state.tuning);
+      if (spinArea) {
+        g.lineStyle(1, ATTACK_BOX, 1);
+        g.strokeRect(
+          spinArea.minX + 0.5,
+          spinArea.minY + 0.5,
+          spinArea.maxX - spinArea.minX - 1,
+          spinArea.maxY - spinArea.minY - 1,
+        );
+      }
       const hit = activeHitbox(e, state.tuning);
       if (hit) {
         g.fillStyle(ATTACK_BOX, 0.3);
@@ -128,7 +239,7 @@ export class SimRenderer {
     }
     const script = state.tuning.combat.dummy.scriptedAttack ? "on" : "off";
     this.hud.setText(
-      `tick ${state.tick}  fps ${Math.round(fps)}  dummy atk ${script}`,
+      `tick ${state.tick}  fps ${Math.round(fps)}  dummy atk ${script}  tokens ${tokensInUse(state)}/${tokenCapacity(state.tuning)}`,
     );
   }
 
@@ -168,11 +279,35 @@ export class SimRenderer {
     ) {
       return TELEGRAPH;
     }
+    if (e.mobType !== null)
+      return MOB_COLOR[e.mobType] ?? FACTION_COLOR[e.faction];
     return FACTION_COLOR[e.faction];
+  }
+
+  private drawProjectiles(state: SimState): void {
+    const g = this.gfx;
+    for (const p of state.projectiles) {
+      const b = projectileBox(p, state.tuning);
+      g.fillStyle(p.deflected ? FACTION_COLOR[p.faction] : PROJECTILE, 1);
+      g.fillRect(b.minX, b.minY, b.maxX - b.minX, b.maxY - b.minY);
+      if (this.debug) {
+        g.lineStyle(1, ATTACK_BOX, 1);
+        g.strokeRect(
+          b.minX + 0.5,
+          b.minY + 0.5,
+          b.maxX - b.minX - 1,
+          b.maxY - b.minY - 1,
+        );
+      }
+    }
   }
 
   private bodyAlpha(state: SimState, e: Entity): number {
     if (e.state === "dodge") return 0.45;
+    if (e.state === "dead") {
+      const total = Math.max(1, state.tuning.combat.death.frames);
+      return e.combat.stun > 0 ? (0.8 * e.combat.stun) / total : 0.3;
+    }
     const stunned =
       e.state === "hurt" || e.state === "stagger" || e.state === "guardBreak";
     if (!stunned && e.combat.hurtIframes > 0 && blinkOn(state.tick, 3)) {
@@ -228,15 +363,30 @@ export class SimRenderer {
     const g = this.gfx;
     const { guardMax } = state.tuning.combat.block;
     const { spinMax } = state.tuning.combat.meters;
+    const spin = state.tuning.kits[player.kitId]?.spin;
+    const ready =
+      spin !== undefined &&
+      spin !== null &&
+      player.combat.spinMeter >= spin.minMeter;
     const bars: [number, number, number, number][] = [
       [1, player.combat.guard, guardMax, GUARD_BAR],
-      [9, player.combat.spinMeter, spinMax, SPIN_BAR],
+      [9, player.combat.spinMeter, spinMax, ready ? SPIN_READY : SPIN_BAR],
     ];
     for (const [y, value, max, color] of bars) {
       g.fillStyle(BAR_BACK, 0.7);
       g.fillRect(HUD_BAR_X - 1, y, HUD_BAR_W + 2, 6);
       g.fillStyle(color, 1);
       g.fillRect(HUD_BAR_X, y + 1, Math.round((HUD_BAR_W * value) / max), 4);
+    }
+    if (spin) {
+      // The notch marks how much meter a spin needs to start.
+      g.fillStyle(FLASH, 1);
+      g.fillRect(
+        HUD_BAR_X + Math.round((HUD_BAR_W * spin.minMeter) / spinMax),
+        9,
+        1,
+        6,
+      );
     }
   }
 
@@ -254,7 +404,7 @@ export class SimRenderer {
       ? ` ${e.combat.comboIndex + 1}${attackPhase(attack, e.combat.attackFrame)[0]}`
       : "";
     label
-      .setText(`${e.state}${detail}`)
+      .setText(`${e.state}${detail}${e.ai ? ` ${e.ai.mode}` : ""}`)
       .setPosition(
         Math.round(e.pos.x),
         Math.round(e.pos.y + e.feet.h / 2 - e.z - e.bodyHeight - 6),

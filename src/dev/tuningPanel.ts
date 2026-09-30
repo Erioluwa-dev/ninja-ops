@@ -40,6 +40,8 @@ export function createTuningPanel(tuning: Tuning): TuningPanel {
   const pane = new Pane({ title: "Tuning (F1)" });
   addSection(pane, "combat", tuning.combat);
   addSection(pane, "attacks", tuning.attacks);
+  addSection(pane, "mobs", tuning.mobs);
+  addSection(pane, "projectiles", tuning.projectiles);
   addSection(pane, "kits", tuning.kits);
   pane.hidden = true;
   return {

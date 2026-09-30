@@ -48,6 +48,23 @@ export interface CombatData {
   meters: {
     spinMax: number;
     perfectDodgeSpinGain: number;
+    /** Spin meter gained by an attacker whose hit landed and damaged. */
+    spinGainPerHit: number;
+  };
+  tokens: {
+    /** Attack-token capacity in weight units; clamped to `max`. */
+    pool: number;
+    max: number;
+  };
+  death: {
+    /** Frames a dead entity lingers (fading) before removal. */
+    frames: number;
+  };
+  crowd: {
+    /** Mobs closer than this (center to center) push apart. */
+    separationRadius: number;
+    /** Strength of the push relative to the mob's own steering. */
+    separationWeight: number;
   };
   dummy: {
     /** Default for the F2 toggle. */
@@ -96,6 +113,18 @@ export const COMBAT = {
   meters: {
     spinMax: 100,
     perfectDodgeSpinGain: 12,
+    spinGainPerHit: 8,
+  },
+  tokens: {
+    pool: 2,
+    max: 3,
+  },
+  death: {
+    frames: 30,
+  },
+  crowd: {
+    separationRadius: 14,
+    separationWeight: 1,
   },
   dummy: {
     scriptedAttack: false,

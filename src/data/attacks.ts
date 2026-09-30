@@ -1,21 +1,27 @@
-export interface AttackData {
+/** What a contact does, shared by melee swings, spin hits and projectiles. */
+export interface HitData {
+  damage: number;
+  /** Guard meter drained from a blocker. */
+  guardDamage: number;
+  /** Initial knockback speed in px/s along the hit direction. */
+  knockback: number;
+  /** Freeze frames applied to both sides on any contact. */
+  hitstop: number;
+  unblockable: boolean;
+}
+
+export interface AttackData extends HitData {
   /** Frames before the hitbox can hit; also the visible windup. */
   startup: number;
   /** Frames the hitbox is live. */
   active: number;
   recovery: number;
-  damage: number;
-  /** Guard meter drained from a blocker. */
-  guardDamage: number;
-  /** Initial knockback speed in px/s along the attacker's facing. */
-  knockback: number;
-  /** Freeze frames applied to both attacker and target on any contact. */
-  hitstop: number;
   /** Ground-plane rect in front of the attacker's feet. */
   hitbox: { length: number; width: number; offset: number };
-  unblockable: boolean;
   /** Renderer tints the startup so the swing is readable. */
   telegraph: boolean;
+  /** Projectile fired on the first active frame; the attack then has no hitbox. */
+  projectile?: string;
 }
 
 export const ATTACKS = {
@@ -66,5 +72,30 @@ export const ATTACKS = {
     hitbox: { length: 16, width: 18, offset: 13 },
     unblockable: false,
     telegraph: true,
+  },
+  oniSlash: {
+    startup: 22,
+    active: 4,
+    recovery: 20,
+    damage: 10,
+    guardDamage: 20,
+    knockback: 90,
+    hitstop: 3,
+    hitbox: { length: 14, width: 14, offset: 11 },
+    unblockable: false,
+    telegraph: true,
+  },
+  oniBolt: {
+    startup: 34,
+    active: 1,
+    recovery: 26,
+    damage: 8,
+    guardDamage: 18,
+    knockback: 60,
+    hitstop: 3,
+    hitbox: { length: 0, width: 0, offset: 0 },
+    unblockable: false,
+    telegraph: true,
+    projectile: "oniBolt",
   },
 } as const satisfies Record<string, AttackData>;
