@@ -51,6 +51,10 @@ function solidTilesOverlapping(arena: Arena, box: Box): Box[] {
   return tiles;
 }
 
+export function boxHitsWall(arena: Arena, box: Box): boolean {
+  return solidTilesOverlapping(arena, box).length > 0;
+}
+
 function blockersOverlapping(
   arena: Arena,
   mover: Entity,
@@ -59,7 +63,8 @@ function blockersOverlapping(
   const box = feetBox(mover);
   const blockers = solidTilesOverlapping(arena, box);
   for (const other of others) {
-    if (other.id === mover.id) continue;
+    // A corpse fades in place and must not wall anyone in.
+    if (other.id === mover.id || other.state === "dead") continue;
     const otherBox = feetBox(other);
     if (boxesOverlap(box, otherBox)) blockers.push(otherBox);
   }

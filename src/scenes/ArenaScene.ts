@@ -7,6 +7,7 @@ import {
   createFixedStepper,
   createSim,
   type SimState,
+  spawnWave,
   step,
 } from "../sim";
 
@@ -80,6 +81,7 @@ export class ArenaScene extends Phaser.Scene {
     if (snapshot.debugPressed) this.view.toggleDebug();
     if (snapshot.tuningPanelPressed) this.panel?.toggle();
     if (snapshot.dummyAttackPressed) this.toggleDummyAttack();
+    if (snapshot.spawnWavePressed) spawnWave(this.state);
 
     const pauseHeld = snapshot.actions.pause;
     if (pauseHeld && !this.pauseWasHeld) {

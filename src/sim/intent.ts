@@ -1,4 +1,4 @@
-import { canDamage } from "../data/factions";
+import { canDamage, isHostile } from "../data/factions";
 import type { Tuning } from "../data/tuning";
 import type { ActionFrame, Entity, SimState, Vec2 } from "./types";
 
@@ -10,17 +10,19 @@ export interface Intent {
   dodgePress: boolean;
   blockHeld: boolean;
   blockPress: boolean;
+  spinHeld: boolean;
   /** Direction to face while free, e.g. toward a target. */
   aim: Vec2 | null;
 }
 
-const NO_INTENT: Intent = {
+export const NO_INTENT: Intent = {
   moveX: 0,
   moveY: 0,
   attackPress: false,
   dodgePress: false,
   blockHeld: false,
   blockPress: false,
+  spinHeld: false,
   aim: null,
 };
 
@@ -41,15 +43,33 @@ export function playerIntent(input: ActionFrame, prev: ActionFrame): Intent {
     dodgePress: input.dodge && !prev.dodge,
     blockHeld: input.block,
     blockPress: input.block && !prev.block,
+    spinHeld: input.spin,
     aim: null,
   };
+}
+
+/** Closest living hostile; neutrals are hittable but never something to hunt. */
+export function nearestHostile(state: SimState, self: Entity): Entity | null {
+  let best: Entity | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const other of state.entities) {
+    if (other === self || other.state === "dead") continue;
+    if (!isHostile(self.faction, other.faction)) continue;
+    const d = Math.hypot(other.pos.x - self.pos.x, other.pos.y - self.pos.y);
+    if (d < bestDist) {
+      best = other;
+      bestDist = d;
+    }
+  }
+  return best;
 }
 
 function nearestTarget(state: SimState, self: Entity): Entity | null {
   let best: Entity | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
   for (const other of state.entities) {
-    if (other === self || !canDamage(self.faction, other.faction)) continue;
+    if (other === self || other.state === "dead") continue;
+    if (!canDamage(self.faction, other.faction)) continue;
     const d = Math.hypot(other.pos.x - self.pos.x, other.pos.y - self.pos.y);
     if (d < bestDist) {
       best = other;

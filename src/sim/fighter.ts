@@ -2,7 +2,9 @@ import { getAttack, getKit, type Tuning } from "../data/tuning";
 import { attackTotalFrames } from "./attack";
 import { moveAndCollide } from "./collision";
 import type { Intent } from "./intent";
-import { canEnterState, clearAttack } from "./states";
+import { fireProjectile } from "./projectiles";
+import { dizzyFrames, runSpinHooks, spinDataOf } from "./spin";
+import { canEnterState, clearAttack, clearSpin, enterStun } from "./states";
 import { SIM_HZ } from "./timing";
 import type { Entity, SimState } from "./types";
 import { normalized, snapCardinal } from "./vec";
@@ -31,6 +33,11 @@ function tickTimers(e: Entity, tuning: Tuning): void {
   c.counterWindow = Math.max(0, c.counterWindow - 1);
   c.guardRegenDelay = Math.max(0, c.guardRegenDelay - 1);
   c.hpRegenDelay = Math.max(0, c.hpRegenDelay - 1);
+  for (const id of Object.keys(c.spinHitCd)) {
+    const left = (c.spinHitCd[Number(id)] ?? 0) - 1;
+    if (left > 0) c.spinHitCd[Number(id)] = left;
+    else delete c.spinHitCd[Number(id)];
+  }
 
   if (c.hpRegenDelay === 0 && kit.regenPerTick > 0) {
     e.hp = Math.min(e.maxHp, e.hp + kit.regenPerTick);
@@ -80,6 +87,17 @@ function startDodge(e: Entity, intent: Intent, tuning: Tuning): void {
   e.state = "dodge";
 }
 
+function startSpin(e: Entity): void {
+  clearAttack(e);
+  clearSpin(e);
+  const c = e.combat;
+  c.attackBuffer = 0;
+  c.dodgeBuffer = 0;
+  c.dodgeFrame = 0;
+  c.blockFrame = 0;
+  e.state = "spin";
+}
+
 function startBlock(e: Entity): void {
   clearAttack(e);
   e.combat.blockFrame = 0;
@@ -87,12 +105,37 @@ function startBlock(e: Entity): void {
 }
 
 /** Advances the state the entity was already in; may free it. */
-function advanceState(e: Entity, intent: Intent, tuning: Tuning): void {
+function advanceSpin(state: SimState, e: Entity, intent: Intent): void {
+  const c = e.combat;
+  const spin = spinDataOf(state.tuning, e);
+  if (!spin) {
+    e.state = "idle";
+    return;
+  }
+  c.spinMeter = Math.max(0, c.spinMeter - spin.drainPerTick);
+  if (intent.spinHeld && c.spinMeter > 0) {
+    c.spinFrame += 1;
+    runSpinHooks(state, e, spin, "onSpinTick");
+    return;
+  }
+  // Hooks run before the stun clears the spin counters they read. A hit that
+  // interrupts a spin skips them: the spin never reached its natural end.
+  runSpinHooks(state, e, spin, "onSpinEnd");
+  enterStun(e, "dizzy", dizzyFrames(spin, c.spinFrame));
+}
+
+function advanceState(
+  state: SimState,
+  e: Entity,
+  intent: Intent,
+  tuning: Tuning,
+): void {
   const c = e.combat;
   switch (e.state) {
     case "hurt":
     case "stagger":
     case "guardBreak":
+    case "dizzy":
       c.stun -= 1;
       if (c.stun <= 0) e.state = "idle";
       break;
@@ -122,6 +165,9 @@ function advanceState(e: Entity, intent: Intent, tuning: Tuning): void {
       if (intent.blockHeld) c.blockFrame += 1;
       else e.state = "idle";
       break;
+    case "spin":
+      advanceSpin(state, e, intent);
+      break;
     default:
       break;
   }
@@ -129,6 +175,7 @@ function advanceState(e: Entity, intent: Intent, tuning: Tuning): void {
 
 function chooseState(e: Entity, intent: Intent, tuning: Tuning): void {
   const c = e.combat;
+  const spin = getKit(tuning, e.kitId).spin;
 
   if (
     c.dodgeBuffer > 0 &&
@@ -142,6 +189,16 @@ function chooseState(e: Entity, intent: Intent, tuning: Tuning): void {
   const blockCanStart = e.state !== "attack" || intent.blockPress;
   if (intent.blockHeld && blockCanStart && canEnterState(e.state, "block")) {
     startBlock(e);
+  }
+
+  // Spin outranks block, so holding both lands in spin.
+  if (
+    spin &&
+    intent.spinHeld &&
+    c.spinMeter >= spin.minMeter &&
+    canEnterState(e.state, "spin")
+  ) {
+    startSpin(e);
   }
 
   // A live counter window lets the punish cut through block and dodge; a plain
@@ -166,6 +223,12 @@ function applyVelocity(e: Entity, intent: Intent, tuning: Tuning): void {
       e.vel.x = intent.moveX * speed * block.moveSpeedScale;
       e.vel.y = intent.moveY * speed * block.moveSpeedScale;
       break;
+    case "spin": {
+      const scale = getKit(tuning, e.kitId).spin?.moveSpeedScale ?? 0;
+      e.vel.x = intent.moveX * speed * scale;
+      e.vel.y = intent.moveY * speed * scale;
+      break;
+    }
     case "dodge":
       e.vel.x = e.combat.dodgeDir.x * dodge.speed;
       e.vel.y = e.combat.dodgeDir.y * dodge.speed;
@@ -176,34 +239,9 @@ function applyVelocity(e: Entity, intent: Intent, tuning: Tuning): void {
   }
 }
 
-export function tickEntity(state: SimState, e: Entity, intent: Intent): void {
-  const { tuning } = state;
+function integrate(state: SimState, e: Entity): void {
   const c = e.combat;
-
-  if (c.hitstop > 0) {
-    c.hitstop -= 1;
-    registerPresses(e, intent, tuning);
-    return;
-  }
-
-  tickTimers(e, tuning);
-  registerPresses(e, intent, tuning);
-  advanceState(e, intent, tuning);
-  chooseState(e, intent, tuning);
-
-  const moving = intent.moveX !== 0 || intent.moveY !== 0;
-  if (moving && (isFree(e) || e.state === "block")) {
-    e.facing = snapCardinal({ x: intent.moveX, y: intent.moveY });
-  } else if (!moving && isFree(e) && intent.aim) {
-    e.facing = snapCardinal(intent.aim);
-  }
-
-  applyVelocity(e, intent, tuning);
-  if (isFree(e)) {
-    e.state = e.vel.x !== 0 || e.vel.y !== 0 ? "move" : "idle";
-  }
-
-  const { hurt } = tuning.combat;
+  const { hurt } = state.tuning.combat;
   moveAndCollide(
     state.arena,
     e,
@@ -217,4 +255,43 @@ export function tickEntity(state: SimState, e: Entity, intent: Intent): void {
     c.knock.x = 0;
     c.knock.y = 0;
   }
+}
+
+export function tickEntity(state: SimState, e: Entity, intent: Intent): void {
+  const { tuning } = state;
+  const c = e.combat;
+
+  if (c.hitstop > 0) {
+    c.hitstop -= 1;
+    registerPresses(e, intent, tuning);
+    return;
+  }
+
+  if (e.state === "dead") {
+    c.stun = Math.max(0, c.stun - 1);
+    e.vel.x = 0;
+    e.vel.y = 0;
+    integrate(state, e);
+    return;
+  }
+
+  tickTimers(e, tuning);
+  registerPresses(e, intent, tuning);
+  advanceState(state, e, intent, tuning);
+  chooseState(e, intent, tuning);
+  fireProjectile(state, e);
+
+  const moving = intent.moveX !== 0 || intent.moveY !== 0;
+  if (moving && (isFree(e) || e.state === "block")) {
+    e.facing = snapCardinal({ x: intent.moveX, y: intent.moveY });
+  } else if (!moving && isFree(e) && intent.aim) {
+    e.facing = snapCardinal(intent.aim);
+  }
+
+  applyVelocity(e, intent, tuning);
+  if (isFree(e)) {
+    e.state = e.vel.x !== 0 || e.vel.y !== 0 ? "move" : "idle";
+  }
+
+  integrate(state, e);
 }

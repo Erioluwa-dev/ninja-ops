@@ -1,3 +1,39 @@
+import type { HitData } from "./attacks";
+
+/**
+ * A data-driven hook run by the sim; `id` selects a handler registered in
+ * src/sim/spin.ts, so an element is a data entry plus a handler.
+ */
+export interface SpinModifierData {
+  id: string;
+  params: Readonly<Record<string, number>>;
+}
+
+export interface SpinData {
+  /** Spin cannot start below this much meter. */
+  minMeter: number;
+  drainPerTick: number;
+  /** Fraction of walking speed while spinning. */
+  moveSpeedScale: number;
+  /** Frames before the same target can be hit by the spin again. */
+  hitInterval: number;
+  /** Half-extent of the square hit area around the feet. */
+  radius: number;
+  hit: HitData;
+  /** Hostile projectiles touching the spin are sent straight back. */
+  deflect: boolean;
+  dizzy: {
+    base: number;
+    /** Extra dizzy frames per second spent spinning. */
+    perSecond: number;
+    max: number;
+  };
+  /** Run every spinning tick. */
+  onSpinTick: readonly SpinModifierData[];
+  /** Run once when the spin ends by release or an empty meter. */
+  onSpinEnd: readonly SpinModifierData[];
+}
+
 export interface KitData {
   /** Pixels per second at full stick deflection. */
   moveSpeed: number;
@@ -14,6 +50,10 @@ export interface KitData {
   hurtIframes: number;
   /** Attack ids in combo order. */
   comboAttacks: readonly string[];
+  /** Whether a corpse leaves the arena; a defeated player stays for the result. */
+  removeOnDeath: boolean;
+  /** The kit's signature move; null means the entity cannot spin. */
+  spin: SpinData | null;
 }
 
 export const KITS = {
@@ -28,6 +68,25 @@ export const KITS = {
     hurtStun: 18,
     hurtIframes: 45,
     comboAttacks: ["ninjaHit1", "ninjaHit2", "ninjaHit3"],
+    removeOnDeath: false,
+    spin: {
+      minMeter: 20,
+      drainPerTick: 0.5,
+      moveSpeedScale: 0.55,
+      hitInterval: 8,
+      radius: 22,
+      hit: {
+        damage: 5,
+        guardDamage: 8,
+        knockback: 110,
+        hitstop: 2,
+        unblockable: false,
+      },
+      deflect: true,
+      dizzy: { base: 30, perSecond: 30, max: 150 },
+      onSpinTick: [],
+      onSpinEnd: [],
+    },
   },
   dummy: {
     moveSpeed: 0,
@@ -40,6 +99,36 @@ export const KITS = {
     hurtStun: 14,
     hurtIframes: 0,
     comboAttacks: ["dummySwing"],
+    removeOnDeath: false,
+    spin: null,
+  },
+  oniGrunt: {
+    moveSpeed: 40,
+    feet: { w: 10, h: 6 },
+    bodyHeight: 20,
+    maxHp: 20,
+    hpFloor: 0,
+    regenDelay: 0,
+    regenPerTick: 0,
+    hurtStun: 16,
+    hurtIframes: 0,
+    comboAttacks: ["oniSlash"],
+    removeOnDeath: true,
+    spin: null,
+  },
+  oniArcher: {
+    moveSpeed: 34,
+    feet: { w: 10, h: 6 },
+    bodyHeight: 20,
+    maxHp: 12,
+    hpFloor: 0,
+    regenDelay: 0,
+    regenPerTick: 0,
+    hurtStun: 16,
+    hurtIframes: 0,
+    comboAttacks: ["oniBolt"],
+    removeOnDeath: true,
+    spin: null,
   },
 } as const satisfies Record<string, KitData>;
 
