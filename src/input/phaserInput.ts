@@ -1,0 +1,61 @@
+import Phaser from "phaser";
+import type { ActionFrame } from "../sim";
+import { type Bindings, DEFAULT_BINDINGS } from "./bindings";
+import {
+  debugHeld,
+  mapToActions,
+  type RawGamepad,
+  type RawInputState,
+} from "./mapToActions";
+
+export interface InputSnapshot {
+  actions: ActionFrame;
+  debugPressed: boolean;
+}
+
+export class PhaserInput {
+  private readonly keys = new Set<string>();
+  // A tap whose keydown and keyup both land between two polls would otherwise
+  // never be seen; it counts as held for the next poll instead.
+  private readonly tappedSincePoll = new Set<string>();
+  private debugWasHeld = false;
+
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly bindings: Bindings = DEFAULT_BINDINGS,
+  ) {
+    const kb = scene.input.keyboard;
+    if (!kb) return;
+    kb.on("keydown", (e: KeyboardEvent) => {
+      this.keys.add(e.code);
+      this.tappedSincePoll.add(e.code);
+    });
+    kb.on("keyup", (e: KeyboardEvent) => this.keys.delete(e.code));
+    // Keyup never fires for keys released while the window is unfocused.
+    scene.game.events.on(Phaser.Core.Events.BLUR, () => {
+      this.keys.clear();
+      this.tappedSincePoll.clear();
+    });
+  }
+
+  poll(): InputSnapshot {
+    const keys = new Set([...this.keys, ...this.tappedSincePoll]);
+    this.tappedSincePoll.clear();
+    const raw: RawInputState = { keys, gamepad: this.readGamepad() };
+    const held = debugHeld(raw, this.bindings);
+    const debugPressed = held && !this.debugWasHeld;
+    this.debugWasHeld = held;
+    return { actions: mapToActions(raw, this.bindings), debugPressed };
+  }
+
+  private readGamepad(): RawGamepad | null {
+    const plugin = this.scene.input.gamepad;
+    if (!plugin) return null;
+    const pad = plugin.getAll().find((p) => p.connected);
+    if (!pad) return null;
+    return {
+      axes: pad.axes.map((a) => a.getValue()),
+      buttons: pad.buttons.map((b) => b.pressed),
+    };
+  }
+}
