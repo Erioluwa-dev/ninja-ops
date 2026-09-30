@@ -5,8 +5,13 @@ import { PhaserInput } from "../input";
 import { SimRenderer } from "../render";
 import {
   type ActionFrame,
+  canRestart,
   createFixedStepper,
   createSim,
+  cycleElement,
+  deriveSeed,
+  restartSim,
+  type SimMode,
   type SimState,
   spawnWave,
   step,
@@ -39,7 +44,9 @@ function mergeButtons(older: ActionFrame, newer: ActionFrame): ActionFrame {
 }
 
 export class ArenaScene extends Phaser.Scene {
-  private state: SimState = createSim({ seed: SEED });
+  private state: SimState = createSim({ seed: SEED, mode: "intro" });
+  private runIndex = 0;
+  private attackWasHeld = false;
   private controls: PhaserInput | null = null;
   private view: SimRenderer | null = null;
   private panel: TuningPanel | null = null;
@@ -56,7 +63,8 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.state = createSim({ seed: SEED });
+    this.state = createSim({ seed: SEED, mode: "intro" });
+    this.runIndex = 0;
     this.controls = new PhaserInput(this);
     this.view = new SimRenderer(this);
     // Inline in the DEV branch so the bundler drops the import, and Tweakpane
@@ -84,6 +92,16 @@ export class ArenaScene extends Phaser.Scene {
     if (snapshot.dummyAttackPressed) this.toggleDummyAttack();
     if (snapshot.spawnWavePressed) spawnWave(this.state, WAVES[0]);
     if (snapshot.spawnBrutePressed) spawnWave(this.state, WAVES[1]);
+    if (snapshot.cycleElementPressed) this.cycleElement();
+    if (snapshot.toggleSandboxPressed) {
+      const inSandbox = this.state.arenaFlow.phase === "sandbox";
+      this.restart(inSandbox ? "intro" : "sandbox", snapshot.actions);
+    }
+    const attackPressed = snapshot.actions.attack && !this.attackWasHeld;
+    this.attackWasHeld = snapshot.actions.attack;
+    if (attackPressed && canRestart(this.state)) {
+      this.restart("run", snapshot.actions);
+    }
 
     const pauseHeld = snapshot.actions.pause;
     if (pauseHeld && !this.pauseWasHeld) {
@@ -101,6 +119,20 @@ export class ArenaScene extends Phaser.Scene {
       this.unconsumed = ticks === 0 ? this.actions : null;
     }
     this.view.render(this.state, this.game.loop.actualFps);
+  }
+
+  private cycleElement(): void {
+    const player = this.state.entities.find((e) => e.kind === "player");
+    if (player) cycleElement(this.state, player);
+  }
+
+  // The tuning object carries over so panel edits survive; the held buttons
+  // are marked as already seen so the press that restarted doesn't also swing.
+  private restart(mode: SimMode, held: ActionFrame): void {
+    this.runIndex += 1;
+    this.state = restartSim(this.state, deriveSeed(SEED, this.runIndex), mode);
+    this.state.prevInput = { ...held };
+    this.unconsumed = null;
   }
 
   private toggleDummyAttack(): void {

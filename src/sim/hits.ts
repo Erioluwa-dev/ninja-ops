@@ -4,6 +4,7 @@ import { getAttack, getKit, type Tuning } from "../data/tuning";
 import { armorScale } from "./armor";
 import { activeHitbox, currentAttack } from "./attack";
 import { boxesOverlap, feetBox } from "./collision";
+import { hazardBox, hazardKey } from "./hazards";
 import { isAirborne } from "./jump";
 import { projectileBox } from "./projectiles";
 import { spinBox, spinDataOf } from "./spin";
@@ -28,6 +29,10 @@ interface Contact {
   parryable: boolean;
   /** Only normal attacks feed the spin meter, or a spin could sustain itself. */
   feedsSpin: boolean;
+  /** Hazards are not attacks, so dodging into one earns no perfect-dodge reward. */
+  perfectable: boolean;
+  /** False for damage over time: it hurts without interrupting the target. */
+  flinch: boolean;
   /** Marks this source as done with the target, or starts its re-hit timer. */
   spend: () => void;
 }
@@ -62,8 +67,9 @@ function applyDamage(contact: Contact, tuning: Tuning): void {
 
   target.hp = Math.max(kit.hpFloor, target.hp - baseDamage * (armor ?? 1));
   target.combat.hpRegenDelay = kit.regenDelay;
+  target.combat.hitsTaken += 1;
   // Super armor takes the damage but shrugs off the knockback and the flinch.
-  if (armor === null) {
+  if (armor === null && contact.flinch) {
     const spinBreak = contact.attack?.spinBreakStun ?? 0;
     const wasSpinning = target.state === "spin";
     target.combat.knock = {
@@ -99,7 +105,11 @@ function resolveContact(contact: Contact, tuning: Tuning): HitOutcome {
     // Only a perfect dodge marks the hit as spent; an ordinary dodge leaves the
     // attack live so a long active window can still catch the dodger later. A
     // sweep never counts as perfect, or a well-timed dodge would beat it.
-    if (!contact.attack?.sweep && tc.dodgeFrame < dodge.perfectWindow) {
+    if (
+      contact.perfectable &&
+      !contact.attack?.sweep &&
+      tc.dodgeFrame < dodge.perfectWindow
+    ) {
       contact.spend();
       openCounterWindow(target, tuning);
       tc.spinMeter = Math.min(
@@ -163,6 +173,8 @@ function meleeContacts(state: SimState, out: Contact[]): void {
         knockDir: attacker.facing,
         parryable: true,
         feedsSpin: true,
+        perfectable: true,
+        flinch: true,
         spend: () => attacker.combat.attackHits.push(target.id),
       });
     }
@@ -196,8 +208,53 @@ function spinContacts(state: SimState, out: Contact[]): void {
         knockDir: away.x === 0 && away.y === 0 ? attacker.facing : away,
         parryable: false,
         feedsSpin: false,
+        perfectable: true,
+        flinch: true,
         spend: () => {
           attacker.combat.spinHitCd[target.id] = spin.hitInterval;
+        },
+      });
+    }
+  }
+}
+
+function hazardContacts(state: SimState, out: Contact[]): void {
+  const { tuning, entities } = state;
+  // Contacts are collected before any timer is set, so overlapping zones of one
+  // source would all land in the same tick without this.
+  const queued = new Set<string>();
+  for (const h of state.hazards) {
+    const box = hazardBox(h);
+    const owner = entities.find((e) => e.id === h.ownerId) ?? null;
+    const key = hazardKey(h);
+    for (const target of entities) {
+      if (target.state === "dead") continue;
+      if (!canDamage(h.faction, target.faction)) continue;
+      if ((target.combat.hazardHitCd[key] ?? 0) > 0) continue;
+      if (queued.has(`${target.id}|${key}`)) continue;
+      // Hazards lie on the ground, so a jump clears them.
+      if (isAirborne(target, tuning)) continue;
+      if (!boxesOverlap(box, feetBox(target))) continue;
+      queued.add(`${target.id}|${key}`);
+      const away = normalized({
+        x: target.pos.x - h.pos.x,
+        y: target.pos.y - h.pos.y,
+      });
+      out.push({
+        attacker: owner,
+        target,
+        hit: h.hit,
+        attack: null,
+        // Hazards come from spin modifiers, so armor treats them as spin damage.
+        fromSpin: true,
+        origin: h.pos,
+        knockDir: away.x === 0 && away.y === 0 ? { x: 1, y: 0 } : away,
+        parryable: false,
+        feedsSpin: false,
+        perfectable: false,
+        flinch: h.flinch,
+        spend: () => {
+          target.combat.hazardHitCd[key] = h.hitInterval;
         },
       });
     }
@@ -229,6 +286,8 @@ function projectileContacts(state: SimState): void {
           knockDir: dir,
           parryable: true,
           feedsSpin: false,
+          perfectable: true,
+          flinch: true,
           spend: () => p.spent.push(target.id),
         },
         tuning,
@@ -245,6 +304,7 @@ export function resolveHits(state: SimState): void {
   const contacts: Contact[] = [];
   meleeContacts(state, contacts);
   spinContacts(state, contacts);
+  hazardContacts(state, contacts);
   for (const contact of contacts) resolveContact(contact, state.tuning);
   projectileContacts(state);
 }

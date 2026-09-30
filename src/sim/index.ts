@@ -10,24 +10,30 @@ export {
 } from "./attack";
 export { type Box, feetBox, moveAndCollide } from "./collision";
 export { depthOrder } from "./depth";
+export { cycleElement, setElement } from "./elements";
 export { createEntity } from "./entity";
+export { canRestart, startRun } from "./flow";
+export { hazardBox } from "./hazards";
 export { isAirborne } from "./jump";
 export { projectileBox } from "./projectiles";
-export { nextFloat } from "./rng";
+export { deriveSeed, nextFloat } from "./rng";
 export { spawnMob, spawnWave } from "./spawner";
 export { dizzyFrames, SPIN_MODIFIERS, spinBox } from "./spin";
 export { STATE_PRIORITY } from "./states";
-export { createSim, step } from "./step";
+export { createSim, restartSim, type SimMode, step } from "./step";
 export { createFixedStepper, FIXED_DT_MS, SIM_HZ } from "./timing";
 export { holdsToken, tokenCapacity, tokensInUse } from "./tokens";
 export type {
   ActionFrame,
   Arena,
+  ArenaFlow,
   AttackPhase,
   CombatState,
   Entity,
   EntityState,
   Faction,
+  FlowPhase,
+  Hazard,
   MobAi,
   Projectile,
   SimState,

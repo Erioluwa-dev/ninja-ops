@@ -42,6 +42,12 @@ function tickTimers(e: Entity, tuning: Tuning): void {
     else delete c.spinHitCd[Number(id)];
   }
 
+  for (const key of Object.keys(c.hazardHitCd)) {
+    const left = (c.hazardHitCd[key] ?? 0) - 1;
+    if (left > 0) c.hazardHitCd[key] = left;
+    else delete c.hazardHitCd[key];
+  }
+
   if (c.hpRegenDelay === 0 && kit.regenPerTick > 0) {
     e.hp = Math.min(e.maxHp, e.hp + kit.regenPerTick);
   }

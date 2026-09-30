@@ -2,16 +2,19 @@ import type Phaser from "phaser";
 import {
   activeHitbox,
   attackPhase,
+  canRestart,
   currentAttack,
   depthOrder,
   type Entity,
   type Faction,
   feetBox,
+  type Hazard,
   holdsToken,
   isAirborne,
   isArmored,
   isSolidTile,
   projectileBox,
+  SIM_HZ,
   type SimState,
   spinBox,
   telegraphBox,
@@ -61,8 +64,15 @@ const BAR_BACK = 0x000000;
 const HP_BAR_W = 16;
 const HUD_BAR_W = 60;
 const HUD_BAR_X = 10;
-const BOSS_BAR_W = 160;
-const BOSS_BAR_Y = 150;
+// The boss bar sits in the top wall row, right of the meters, so its name label
+// can never collide with the bottom-left debug text.
+const BOSS_BAR_W = 152;
+const BOSS_BAR_X = 80;
+const BOSS_BAR_Y = 9;
+const BOTTOM_HUD_Y = 150;
+const HAZARD_FADE_FRAMES = 24;
+const VICTORY = "#80ff90";
+const DEFEAT = "#ff6060";
 
 const LABEL_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
   fontFamily: "monospace",
@@ -71,6 +81,9 @@ const LABEL_STYLE: Phaser.Types.GameObjects.Text.TextStyle = {
   stroke: "#000000",
   strokeThickness: 2,
 };
+
+const hexString = (color: number): string =>
+  `#${color.toString(16).padStart(6, "0")}`;
 
 // Flashing every other pair of ticks reads as a blink at 60 Hz without strobing.
 const blinkOn = (tick: number, period: number): boolean =>
@@ -81,30 +94,49 @@ export class SimRenderer {
   private readonly hud: Phaser.GameObjects.Text;
   private readonly pausedLabel: Phaser.GameObjects.Text;
   private readonly bossLabel: Phaser.GameObjects.Text;
-  private readonly defeatedLabel: Phaser.GameObjects.Text;
+  private readonly overlay: Phaser.GameObjects.Graphics;
+  private readonly waveLabel: Phaser.GameObjects.Text;
+  private readonly elementLabel: Phaser.GameObjects.Text;
+  private readonly bannerLabel: Phaser.GameObjects.Text;
+  private readonly panelTitle: Phaser.GameObjects.Text;
+  private readonly panelBody: Phaser.GameObjects.Text;
   private readonly labels = new Map<number, Phaser.GameObjects.Text>();
   private debug = false;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.gfx = scene.add.graphics();
     this.hud = scene.add
-      .text(2, 141, "", LABEL_STYLE)
+      .text(2, 140, "", LABEL_STYLE)
       .setDepth(1000)
       .setVisible(false);
     scene.add.text(1, 0, "G", LABEL_STYLE).setDepth(1000).setColor("#50c8ff");
     scene.add.text(1, 8, "S", LABEL_STYLE).setDepth(1000).setColor("#ffd040");
     this.bossLabel = scene.add
-      .text(scene.scale.width / 2, BOSS_BAR_Y - 1, "", LABEL_STYLE)
-      .setOrigin(0.5, 1)
+      .text(BOSS_BAR_X, BOSS_BAR_Y - 1, "", LABEL_STYLE)
+      .setOrigin(0, 1)
       .setDepth(1000)
       .setVisible(false);
-    this.defeatedLabel = scene.add
-      .text(scene.scale.width / 2, scene.scale.height / 2 - 20, "DEFEATED", {
-        ...LABEL_STYLE,
-        fontSize: "16px",
-        color: "#ff6060",
-      })
+    this.overlay = scene.add.graphics().setDepth(1500);
+    this.waveLabel = scene.add
+      .text(scene.scale.width - 2, BOTTOM_HUD_Y, "", LABEL_STYLE)
+      .setOrigin(1, 0)
+      .setDepth(1000);
+    this.elementLabel = scene.add
+      .text(2, BOTTOM_HUD_Y, "", LABEL_STYLE)
+      .setDepth(1000);
+    this.bannerLabel = scene.add
+      .text(scene.scale.width / 2, 44, "", { ...LABEL_STYLE, fontSize: "16px" })
       .setOrigin(0.5)
+      .setDepth(2000)
+      .setVisible(false);
+    this.panelTitle = scene.add
+      .text(scene.scale.width / 2, 48, "", { ...LABEL_STYLE, fontSize: "16px" })
+      .setOrigin(0.5)
+      .setDepth(2000)
+      .setVisible(false);
+    this.panelBody = scene.add
+      .text(scene.scale.width / 2, 80, "", { ...LABEL_STYLE, align: "center" })
+      .setOrigin(0.5, 0)
       .setDepth(2000)
       .setVisible(false);
     this.pausedLabel = scene.add
@@ -226,6 +258,7 @@ export class SimRenderer {
     const g = this.gfx;
     g.clear();
     this.drawArena(state);
+    this.drawHazards(state);
 
     const ordered = depthOrder(state.entities);
     for (const e of ordered) this.drawTelegraph(state, e);
@@ -239,10 +272,10 @@ export class SimRenderer {
       if (e.state !== "dead" && !this.isBoss(state, e)) this.drawHpBar(e);
     }
     this.drawBossBar(state, ordered);
-    this.defeatedLabel.setVisible(state.defeated);
 
     const player = state.entities.find((e) => e.kind === "player");
     if (player) this.drawMeters(state, player);
+    this.drawFlowHud(state, player);
 
     if (!this.debug) return;
     for (const e of ordered) {
@@ -298,6 +331,101 @@ export class SimRenderer {
     const script = state.tuning.combat.dummy.scriptedAttack ? "on" : "off";
     this.hud.setText(
       `tick ${state.tick}  fps ${Math.round(fps)}  dummy atk ${script}  tokens ${tokensInUse(state)}/${tokenCapacity(state.tuning)}`,
+    );
+  }
+
+  private drawHazards(state: SimState): void {
+    for (const h of state.hazards) this.drawHazard(state, h);
+  }
+
+  private drawHazard(state: SimState, h: Hazard): void {
+    const g = this.gfx;
+    if (h.style === "ring") {
+      // The hit lands on the first tick; the ring only sells the shockwave.
+      const t = 1 - h.life / h.maxLife;
+      const half = h.radius * (0.25 + 0.75 * t);
+      g.fillStyle(h.color, 0.25 * (1 - t));
+      g.fillRect(h.pos.x - half, h.pos.y - half, half * 2, half * 2);
+      g.lineStyle(2, h.color, 1 - t * 0.7);
+      g.strokeRect(h.pos.x - half, h.pos.y - half, half * 2, half * 2);
+      return;
+    }
+    const fade = Math.min(1, h.life / HAZARD_FADE_FRAMES);
+    const flicker = blinkOn(state.tick + h.id, 4) ? 0.45 : 0.6;
+    g.fillStyle(h.color, flicker * fade);
+    g.fillRect(
+      h.pos.x - h.radius,
+      h.pos.y - h.radius,
+      h.radius * 2,
+      h.radius * 2,
+    );
+    g.fillStyle(FLASH, 0.25 * fade);
+    const core = h.radius / 2;
+    g.fillRect(h.pos.x - core, h.pos.y - core, core * 2, core * 2);
+  }
+
+  private drawFlowHud(state: SimState, player: Entity | undefined): void {
+    const { arenaFlow: flow, tuning } = state;
+    const { phase } = flow;
+    const total = tuning.flow.waves.length;
+    const active = phase === "wave" || phase === "breather";
+
+    this.waveLabel.setText(
+      phase === "sandbox"
+        ? "SANDBOX"
+        : active
+          ? `WAVE ${flow.wave}/${total}`
+          : phase === "boss"
+            ? "BOSS"
+            : "",
+    );
+
+    const element = player?.element
+      ? tuning.elements[player.element]
+      : undefined;
+    this.elementLabel
+      .setText(element ? element.name.toUpperCase() : "NO ELEMENT")
+      .setColor(element ? hexString(element.color) : "#8a8a9a");
+
+    const bannerUp = flow.phaseTicks < tuning.flow.bannerFrames;
+    const banner =
+      phase === "wave" && bannerUp
+        ? `WAVE ${flow.wave}`
+        : phase === "boss" && bannerUp
+          ? "BOSS"
+          : phase === "breather" && bannerUp
+            ? `WAVE ${flow.wave} CLEAR`
+            : "";
+    this.bannerLabel.setText(banner).setVisible(banner !== "");
+
+    const o = this.overlay;
+    o.clear();
+    const showPanel =
+      phase === "intro" || phase === "victory" || phase === "defeat";
+    this.panelTitle.setVisible(showPanel);
+    this.panelBody.setVisible(showPanel);
+    if (!showPanel) return;
+    o.fillStyle(BAR_BACK, 0.65);
+    o.fillRect(0, 0, state.arena.cols * state.arena.tileSize, 160);
+
+    if (phase === "intro") {
+      this.panelTitle.setText("NINJA OPS").setColor("#ffffff");
+      this.panelBody.setText(
+        "ATTACK  start the run\nF5  element   F6  sandbox",
+      );
+      return;
+    }
+    const won = phase === "victory";
+    const cleared = won
+      ? `${flow.wavesCleared}/${total} + BOSS`
+      : `${flow.wavesCleared}/${total}`;
+    const seconds = (flow.runTicks / SIM_HZ).toFixed(1);
+    const hits = player?.combat.hitsTaken ?? 0;
+    this.panelTitle
+      .setText(won ? "VICTORY" : "DEFEATED")
+      .setColor(won ? VICTORY : DEFEAT);
+    this.panelBody.setText(
+      `Waves cleared  ${cleared}\nTime  ${seconds}s\nHits taken  ${hits}\n\n${canRestart(state) ? "ATTACK  restart" : ""}`,
     );
   }
 
@@ -433,9 +561,7 @@ export class SimRenderer {
     this.bossLabel.setVisible(boss !== undefined);
     if (!boss) return;
     const g = this.gfx;
-    const x = Math.round(
-      (state.arena.cols * state.arena.tileSize - BOSS_BAR_W) / 2,
-    );
+    const x = BOSS_BAR_X;
     g.fillStyle(BAR_BACK, 0.8);
     g.fillRect(x - 1, BOSS_BAR_Y, BOSS_BAR_W + 2, 6);
     g.fillStyle(BOSS_BAR, 1);

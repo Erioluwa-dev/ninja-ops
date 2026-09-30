@@ -21,11 +21,14 @@ Revised from the Phase 1 PRD (Claude Docs: "Ninjago GBA RPG: Phase 1 PRD (Combat
 - **Deflected projectiles:** straight back along their path. Homing is a later upgrade.
 - **Button mapping:** A = attack, B = dodge, X = jump, hold L = block, hold R = spin, Start = pause. Keyboard mirrors it; exact keys are set in the input layer's default binding table.
 - **Phase 1 elements:** fire and earth. Fire exercises a *during-spin* hook (spawns a burning trail); earth exercises an *on-spin-end* hook (shockwave). Together they prove element modifiers are generic. Ice (status effect) and lightning (chain targeting) come later.
+  - Built in Phase 8: an element is a `src/data/elements.ts` entry of modifier lists merged into the spin at runtime, composed from generic handlers (`spawnHazard`, `radialBurst`). Hazards are ground zones in `state.hazards` hit through the normal pipeline and treated as spin damage by armor. The player's element is `entity.element`, cycled by F5 until random assignment arrives with the story. `applyStatus` (ice) is not built yet.
 - **Counter reward:** bonus damage and a stagger, each toggled in data so both can be playtested.
 - **Phaser version:** Phaser 4.2.1 (latest stable on npm as of 2026-09-30), pinned exactly.
 - **"Your own life" mechanics:** the story branches on your path: train as a ninja, or turn bad and side with the Oni. Phase 1 ships the ninja path only, but two things are built in now because they are cheap today and expensive to retrofit:
   - **Factions, not "player vs enemies".** Every combatant has a `faction` (`ninja`, `oni`, …) and hostility is looked up from a faction table. Attack tokens, targeting and damage never check "is this the player". An Oni-path player fighting ninjas, with Oni mobs as allies, is then a data change.
   - **Path kits as data.** The player's move set (combo, defenses, signature move) comes from a kit definition. Spinjitzu is the ninja kit's signature; the Oni path gets its own signature move later without touching the state machine.
+
+- **Wave loop (Phase 8):** `state.arenaFlow` runs `intro` -> `wave` (data list in `src/data/flow.ts`, breather between) -> `boss` -> `victory`, or `defeat` on the player's death. `createSim` defaults to an inert `sandbox` so scripted tests are unchanged. The scene starts in `intro` (attack starts the run, F6 toggles sandbox); a result panel restarts on attack with a seed derived from the base seed, keeping the live tuning object.
 
 ## Stack
 

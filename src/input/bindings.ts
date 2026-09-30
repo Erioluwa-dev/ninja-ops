@@ -10,11 +10,13 @@ export interface Bindings {
     down: readonly string[];
     actions: Record<ButtonAction, readonly string[]>;
     debug: readonly string[];
-    /** Dev tools: F1 toggles the tuning panel, F2 the dummy's scripted attack, F3 spawns a wave, F4 a brute. */
+    /** Dev tools: F1 toggles the tuning panel, F2 the dummy's scripted attack, F3 spawns a wave, F4 a brute, F5 cycles the element, F6 toggles sandbox mode. */
     tuningPanel: readonly string[];
     dummyAttack: readonly string[];
     spawnWave: readonly string[];
     spawnBrute: readonly string[];
+    cycleElement: readonly string[];
+    toggleSandbox: readonly string[];
   };
   gamepad: {
     dpad: { left: number; right: number; up: number; down: number };
@@ -46,6 +48,8 @@ export const DEFAULT_BINDINGS: Bindings = {
     dummyAttack: ["F2"],
     spawnWave: ["F3"],
     spawnBrute: ["F4"],
+    cycleElement: ["F5"],
+    toggleSandbox: ["F6"],
   },
   gamepad: {
     dpad: { up: 12, down: 13, left: 14, right: 15 },

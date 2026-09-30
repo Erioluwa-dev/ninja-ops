@@ -3,6 +3,8 @@ import { createTuning, type Tuning } from "../data/tuning";
 import { createArena, tileCenter } from "./arena";
 import { createEntity } from "./entity";
 import { tickEntity } from "./fighter";
+import { createFlow, startRun, stepFlow } from "./flow";
+import { stepHazards } from "./hazards";
 import { resolveHits } from "./hits";
 import { dummyIntent, type Intent, NO_INTENT, playerIntent } from "./intent";
 import { mobIntent } from "./mobAi";
@@ -21,7 +23,18 @@ const IDLE_FRAME: ActionFrame = {
   pause: false,
 };
 
-export function createSim(opts: { seed: number; tuning?: Tuning }): SimState {
+export type SimMode = "sandbox" | "intro" | "run";
+
+/**
+ * "sandbox" (the default) spawns nothing on its own, which keeps scripted
+ * scenarios inert; "intro" waits for an attack press; "run" starts wave 1.
+ */
+export function createSim(opts: {
+  seed: number;
+  tuning?: Tuning;
+  mode?: SimMode;
+  element?: string | null;
+}): SimState {
   const tuning = opts.tuning ?? createTuning();
   const arena = createArena();
   const { playerSpawn, dummySpawn } = ARENA_LAYOUT;
@@ -37,21 +50,51 @@ export function createSim(opts: { seed: number; tuning?: Tuning }): SimState {
     tuning,
   );
   syncDummyFaction(dummy, tuning);
-  return {
+  const player = createEntity(
+    1,
+    "player",
+    "ninja",
+    "ninja",
+    p,
+    { x: 1, y: 0 },
+    tuning,
+  );
+  player.element = opts.element ?? null;
+  const mode = opts.mode ?? "sandbox";
+  const state: SimState = {
     tick: 0,
     rngState: opts.seed >>> 0,
     nextId: 3,
     arena,
-    entities: [
-      createEntity(1, "player", "ninja", "ninja", p, { x: 1, y: 0 }, tuning),
-      dummy,
-    ],
+    entities: [player, dummy],
     projectiles: [],
+    hazards: [],
+    arenaFlow: createFlow(mode === "intro" ? "intro" : "sandbox"),
     tokens: [],
     defeated: false,
     tuning,
     prevInput: { ...IDLE_FRAME },
   };
+  if (mode === "run") startRun(state);
+  return state;
+}
+
+/**
+ * A fresh state from `seed` that keeps the live tuning object, so panel edits
+ * survive, and the player's element choice.
+ */
+export function restartSim(
+  prev: SimState,
+  seed: number,
+  mode: SimMode,
+): SimState {
+  const player = prev.entities.find((e) => e.kind === "player");
+  return createSim({
+    seed,
+    tuning: prev.tuning,
+    mode,
+    element: player?.element ?? null,
+  });
 }
 
 // The dummy only fights back when scripted, and a neutral never attacks, so its
@@ -91,6 +134,7 @@ export function step(state: SimState, input: ActionFrame): void {
   for (const entity of state.entities) {
     if (entity.kind === "dummy") syncDummyFaction(entity, state.tuning);
   }
+  stepHazards(state);
   const intents = state.entities.map((e) => intentFor(state, e, input));
   state.entities.forEach((entity, i) => {
     const intent = intents[i];
@@ -100,6 +144,7 @@ export function step(state: SimState, input: ActionFrame): void {
   resolveHits(state);
   pruneTokens(state);
   reapDead(state);
+  stepFlow(state, input);
   state.prevInput = { ...input };
   state.tick += 1;
 }

@@ -1,3 +1,4 @@
+import type { HitData } from "../data/attacks";
 import type { Faction } from "../data/factions";
 import type { Tuning } from "../data/tuning";
 
@@ -71,6 +72,10 @@ export interface CombatState {
   spinFrame: number;
   /** Frames until a spinner may hit each target id again. */
   spinHitCd: Record<number, number>;
+  /** Frames until a hazard source (`ownerId:kind`) may hit this entity again. */
+  hazardHitCd: Record<string, number>;
+  /** Hits that got through defenses and did damage; a run-summary stat. */
+  hitsTaken: number;
   /** Px/s impulse that decays each tick; still collides with walls. */
   knock: Vec2;
 }
@@ -105,6 +110,8 @@ export interface Entity {
   kind: "player" | "dummy" | "mob";
   mobType: string | null;
   ai: MobAi | null;
+  /** Key into tuning.elements whose spin modifiers this entity gets; null for none. */
+  element: string | null;
   faction: Faction;
   kitId: string;
   /** Feet center on the ground plane. */
@@ -140,6 +147,50 @@ export interface Projectile {
   deflected: boolean;
 }
 
+/** Ground zone that hits hostiles standing in it; shared by trails and bursts. */
+export interface Hazard {
+  id: number;
+  /** The spin modifier that made it; with the owner, keys the target's re-hit timer. */
+  kind: string;
+  ownerId: number;
+  faction: Faction;
+  pos: Vec2;
+  /** Half-extent of the square hit area. */
+  radius: number;
+  /** Frames left; it hits on the tick it spawns and expires when this runs out. */
+  life: number;
+  maxLife: number;
+  hit: HitData;
+  /** Frames before the same source may hit the same target again. */
+  hitInterval: number;
+  /** Whether a hit interrupts the target; false makes it pure damage over time. */
+  flinch: boolean;
+  /** "patch" is a lingering zone; "ring" is a burst drawn expanding. */
+  style: "patch" | "ring";
+  color: number;
+}
+
+export type FlowPhase =
+  | "sandbox"
+  | "intro"
+  | "wave"
+  | "breather"
+  | "boss"
+  | "victory"
+  | "defeat";
+
+/** The run's state machine; "sandbox" is inert so debug play and scripted tests are untouched. */
+export interface ArenaFlow {
+  phase: FlowPhase;
+  /** 1-based index of the wave in play or last played; 0 before the first. */
+  wave: number;
+  wavesCleared: number;
+  /** Ticks spent in the current phase. */
+  phaseTicks: number;
+  /** Ticks from the start of the run to its end. */
+  runTicks: number;
+}
+
 export interface TokenHold {
   entityId: number;
   weight: number;
@@ -152,6 +203,8 @@ export interface SimState {
   arena: Arena;
   entities: Entity[];
   projectiles: Projectile[];
+  hazards: Hazard[];
+  arenaFlow: ArenaFlow;
   /** Attack tokens currently held; capacity comes from tuning. */
   tokens: TokenHold[];
   /** The input-driven entity has died; the scene owns what happens next. */

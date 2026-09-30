@@ -16,6 +16,8 @@ export interface InputSnapshot {
   dummyAttackPressed: boolean;
   spawnWavePressed: boolean;
   spawnBrutePressed: boolean;
+  cycleElementPressed: boolean;
+  toggleSandboxPressed: boolean;
 }
 
 export class PhaserInput {
@@ -28,6 +30,8 @@ export class PhaserInput {
   private dummyWasHeld = false;
   private spawnWasHeld = false;
   private bruteWasHeld = false;
+  private elementWasHeld = false;
+  private sandboxWasHeld = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -42,6 +46,8 @@ export class PhaserInput {
         ...bindings.keyboard.dummyAttack,
         ...bindings.keyboard.spawnWave,
         ...bindings.keyboard.spawnBrute,
+        ...bindings.keyboard.cycleElement,
+        ...bindings.keyboard.toggleSandbox,
       ].join(","),
     );
     kb.on("keydown", (e: KeyboardEvent) => {
@@ -66,6 +72,8 @@ export class PhaserInput {
     const dummy = keysHeld(raw, this.bindings.keyboard.dummyAttack);
     const spawn = keysHeld(raw, this.bindings.keyboard.spawnWave);
     const brute = keysHeld(raw, this.bindings.keyboard.spawnBrute);
+    const element = keysHeld(raw, this.bindings.keyboard.cycleElement);
+    const sandbox = keysHeld(raw, this.bindings.keyboard.toggleSandbox);
     const snapshot: InputSnapshot = {
       actions: mapToActions(raw, this.bindings),
       debugPressed: debug && !this.debugWasHeld,
@@ -73,12 +81,16 @@ export class PhaserInput {
       dummyAttackPressed: dummy && !this.dummyWasHeld,
       spawnWavePressed: spawn && !this.spawnWasHeld,
       spawnBrutePressed: brute && !this.bruteWasHeld,
+      cycleElementPressed: element && !this.elementWasHeld,
+      toggleSandboxPressed: sandbox && !this.sandboxWasHeld,
     };
     this.debugWasHeld = debug;
     this.panelWasHeld = panel;
     this.dummyWasHeld = dummy;
     this.spawnWasHeld = spawn;
     this.bruteWasHeld = brute;
+    this.elementWasHeld = element;
+    this.sandboxWasHeld = sandbox;
     return snapshot;
   }
 
