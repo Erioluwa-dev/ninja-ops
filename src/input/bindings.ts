@@ -10,6 +10,9 @@ export interface Bindings {
     down: readonly string[];
     actions: Record<ButtonAction, readonly string[]>;
     debug: readonly string[];
+    /** Dev tools: F1 toggles the tuning panel, F2 the dummy's scripted attack. */
+    tuningPanel: readonly string[];
+    dummyAttack: readonly string[];
   };
   gamepad: {
     dpad: { left: number; right: number; up: number; down: number };
@@ -37,6 +40,8 @@ export const DEFAULT_BINDINGS: Bindings = {
       pause: ["Escape"],
     },
     debug: ["Backquote"],
+    tuningPanel: ["F1"],
+    dummyAttack: ["F2"],
   },
   gamepad: {
     dpad: { up: 12, down: 13, left: 14, right: 15 },

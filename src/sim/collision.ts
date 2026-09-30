@@ -4,7 +4,7 @@ import type { Arena, Entity } from "./types";
 // Touching edges are not overlap; the slack absorbs float error after a snap.
 const EPSILON = 1e-6;
 
-interface Box {
+export interface Box {
   minX: number;
   maxX: number;
   minY: number;
@@ -20,7 +20,7 @@ export function feetBox(e: Entity): Box {
   };
 }
 
-function overlaps(a: Box, b: Box): boolean {
+export function boxesOverlap(a: Box, b: Box): boolean {
   return (
     a.minX < b.maxX - EPSILON &&
     a.maxX > b.minX + EPSILON &&
@@ -61,7 +61,7 @@ function blockersOverlapping(
   for (const other of others) {
     if (other.id === mover.id) continue;
     const otherBox = feetBox(other);
-    if (overlaps(box, otherBox)) blockers.push(otherBox);
+    if (boxesOverlap(box, otherBox)) blockers.push(otherBox);
   }
   return blockers;
 }

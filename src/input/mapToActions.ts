@@ -74,6 +74,13 @@ export function mapToActions(
   };
 }
 
+export function keysHeld(
+  raw: RawInputState,
+  codes: readonly string[],
+): boolean {
+  return anyKey(raw.keys, codes);
+}
+
 export function debugHeld(raw: RawInputState, bindings: Bindings): boolean {
   return (
     anyKey(raw.keys, bindings.keyboard.debug) ||

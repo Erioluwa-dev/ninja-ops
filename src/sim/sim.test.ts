@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { ARENA_LAYOUT } from "../data/arena";
 import { FACTION_IDS, isHostile } from "../data/factions";
 import { KITS } from "../data/kits";
+import { createTuning } from "../data/tuning";
 import { moveAndCollide } from "./collision";
 import { depthOrder } from "./depth";
+import { createEntity } from "./entity";
 import { nextFloat } from "./rng";
 import { createSim, step } from "./step";
 import { entityOfKind, idleInput } from "./testing";
@@ -24,16 +26,17 @@ function runTicks(
 
 function fakeEntity(id: number, y: number): Entity {
   return {
-    id,
-    kind: "dummy",
-    faction: "neutral",
-    kitId: "dummy",
-    pos: { x: 0, y },
-    z: 0,
-    vel: { x: 0, y: 0 },
+    ...createEntity(
+      id,
+      "dummy",
+      "neutral",
+      "dummy",
+      { x: 0, y },
+      { x: 1, y: 0 },
+      createTuning(),
+    ),
     feet: { w: 4, h: 4 },
     bodyHeight: 10,
-    state: "idle",
   };
 }
 

@@ -3,6 +3,7 @@ import type { ActionFrame } from "../sim";
 import { type Bindings, DEFAULT_BINDINGS } from "./bindings";
 import {
   debugHeld,
+  keysHeld,
   mapToActions,
   type RawGamepad,
   type RawInputState,
@@ -11,6 +12,8 @@ import {
 export interface InputSnapshot {
   actions: ActionFrame;
   debugPressed: boolean;
+  tuningPanelPressed: boolean;
+  dummyAttackPressed: boolean;
 }
 
 export class PhaserInput {
@@ -19,6 +22,8 @@ export class PhaserInput {
   // never be seen; it counts as held for the next poll instead.
   private readonly tappedSincePoll = new Set<string>();
   private debugWasHeld = false;
+  private panelWasHeld = false;
+  private dummyWasHeld = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -26,6 +31,12 @@ export class PhaserInput {
   ) {
     const kb = scene.input.keyboard;
     if (!kb) return;
+    // F1 opens the browser's help; the dev keys must not reach the browser.
+    kb.addCapture(
+      [...bindings.keyboard.tuningPanel, ...bindings.keyboard.dummyAttack].join(
+        ",",
+      ),
+    );
     kb.on("keydown", (e: KeyboardEvent) => {
       this.keys.add(e.code);
       this.tappedSincePoll.add(e.code);
@@ -42,10 +53,20 @@ export class PhaserInput {
     const keys = new Set([...this.keys, ...this.tappedSincePoll]);
     this.tappedSincePoll.clear();
     const raw: RawInputState = { keys, gamepad: this.readGamepad() };
-    const held = debugHeld(raw, this.bindings);
-    const debugPressed = held && !this.debugWasHeld;
-    this.debugWasHeld = held;
-    return { actions: mapToActions(raw, this.bindings), debugPressed };
+
+    const debug = debugHeld(raw, this.bindings);
+    const panel = keysHeld(raw, this.bindings.keyboard.tuningPanel);
+    const dummy = keysHeld(raw, this.bindings.keyboard.dummyAttack);
+    const snapshot: InputSnapshot = {
+      actions: mapToActions(raw, this.bindings),
+      debugPressed: debug && !this.debugWasHeld,
+      tuningPanelPressed: panel && !this.panelWasHeld,
+      dummyAttackPressed: dummy && !this.dummyWasHeld,
+    };
+    this.debugWasHeld = debug;
+    this.panelWasHeld = panel;
+    this.dummyWasHeld = dummy;
+    return snapshot;
   }
 
   private readGamepad(): RawGamepad | null {
