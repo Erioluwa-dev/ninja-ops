@@ -22,6 +22,17 @@ export interface AttackData extends HitData {
   telegraph: boolean;
   /** Projectile fired on the first active frame; the attack then has no hitbox. */
   projectile?: string;
+  /** When false, an airborne target is missed: jumping beats it. */
+  hitsAir: boolean;
+  /** A low, ground-hugging strike (sweep or slam); never combined with hitsAir. */
+  ground: boolean;
+  /**
+   * A long sweep. Dodge must not beat it, so it cannot be perfect-dodged and a
+   * data test checks it outlasts or outreaches a dodge.
+   */
+  sweep: boolean;
+  /** Frames of dizzy this hit forces on a spinning target, ending the spin. */
+  spinBreakStun?: number;
 }
 
 export const ATTACKS = {
@@ -36,6 +47,9 @@ export const ATTACKS = {
     hitbox: { length: 16, width: 14, offset: 13 },
     unblockable: false,
     telegraph: false,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
   },
   ninjaHit2: {
     startup: 4,
@@ -48,6 +62,9 @@ export const ATTACKS = {
     hitbox: { length: 16, width: 16, offset: 13 },
     unblockable: false,
     telegraph: false,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
   },
   ninjaHit3: {
     startup: 6,
@@ -60,6 +77,9 @@ export const ATTACKS = {
     hitbox: { length: 20, width: 18, offset: 15 },
     unblockable: false,
     telegraph: false,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
   },
   dummySwing: {
     startup: 30,
@@ -72,6 +92,9 @@ export const ATTACKS = {
     hitbox: { length: 16, width: 18, offset: 13 },
     unblockable: false,
     telegraph: true,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
   },
   oniSlash: {
     startup: 22,
@@ -84,6 +107,9 @@ export const ATTACKS = {
     hitbox: { length: 14, width: 14, offset: 11 },
     unblockable: false,
     telegraph: true,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
   },
   oniBolt: {
     startup: 34,
@@ -96,6 +122,85 @@ export const ATTACKS = {
     hitbox: { length: 0, width: 0, offset: 0 },
     unblockable: false,
     telegraph: true,
+    hitsAir: true,
+    ground: false,
+    sweep: false,
     projectile: "oniBolt",
+  },
+  sweeperSweep: {
+    startup: 28,
+    active: 14,
+    recovery: 30,
+    damage: 10,
+    guardDamage: 22,
+    knockback: 100,
+    hitstop: 3,
+    hitbox: { length: 56, width: 64, offset: 36 },
+    unblockable: false,
+    telegraph: true,
+    hitsAir: false,
+    ground: true,
+    sweep: true,
+  },
+  bruteSmash: {
+    startup: 28,
+    active: 4,
+    recovery: 30,
+    damage: 16,
+    guardDamage: 28,
+    knockback: 150,
+    hitstop: 4,
+    hitbox: { length: 24, width: 24, offset: 18 },
+    unblockable: false,
+    telegraph: true,
+    hitsAir: false,
+    ground: false,
+    sweep: false,
+  },
+  bruteSlam: {
+    startup: 34,
+    active: 6,
+    recovery: 44,
+    damage: 14,
+    guardDamage: 24,
+    knockback: 170,
+    hitstop: 5,
+    hitbox: { length: 60, width: 60, offset: 0 },
+    unblockable: false,
+    telegraph: true,
+    hitsAir: false,
+    ground: true,
+    sweep: false,
+    spinBreakStun: 120,
+  },
+  bruteCrush: {
+    startup: 38,
+    active: 5,
+    recovery: 36,
+    damage: 22,
+    guardDamage: 0,
+    knockback: 200,
+    hitstop: 6,
+    hitbox: { length: 30, width: 28, offset: 18 },
+    unblockable: true,
+    telegraph: true,
+    hitsAir: true,
+    ground: false,
+    sweep: false,
+  },
+  bruteSweep: {
+    startup: 36,
+    active: 16,
+    recovery: 36,
+    damage: 16,
+    guardDamage: 30,
+    knockback: 130,
+    hitstop: 4,
+    hitbox: { length: 60, width: 80, offset: 38 },
+    unblockable: false,
+    telegraph: true,
+    hitsAir: false,
+    ground: true,
+    sweep: true,
   },
 } as const satisfies Record<string, AttackData>;

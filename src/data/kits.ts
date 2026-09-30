@@ -34,6 +34,25 @@ export interface SpinData {
   onSpinEnd: readonly SpinModifierData[];
 }
 
+export interface JumpData {
+  /** Frames from takeoff to touchdown; the arc is a parabola over this span. */
+  frames: number;
+  /** Height in px above the ground plane at the top of the arc. */
+  peakHeight: number;
+  /** Frames of helplessness after touchdown. */
+  landingRecovery: number;
+  /** Fraction of walking speed while in the air. */
+  airSteerScale: number;
+}
+
+/** Super armor: damage reduction plus immunity to knockback and hurt interruption. */
+export interface ArmorData {
+  /** Damage multiplier while the holder is in an attack's startup or active frames. */
+  attackDamageScale: number;
+  /** Damage multiplier against spin hits, at all times. */
+  spinDamageScale: number;
+}
+
 export interface KitData {
   /** Pixels per second at full stick deflection. */
   moveSpeed: number;
@@ -54,6 +73,10 @@ export interface KitData {
   removeOnDeath: boolean;
   /** The kit's signature move; null means the entity cannot spin. */
   spin: SpinData | null;
+  /** Null means the entity cannot jump. */
+  jump: JumpData | null;
+  /** Null means every hit interrupts. */
+  armor: ArmorData | null;
 }
 
 export const KITS = {
@@ -87,6 +110,13 @@ export const KITS = {
       onSpinTick: [],
       onSpinEnd: [],
     },
+    jump: {
+      frames: 34,
+      peakHeight: 24,
+      landingRecovery: 8,
+      airSteerScale: 0.7,
+    },
+    armor: null,
   },
   dummy: {
     moveSpeed: 0,
@@ -101,6 +131,8 @@ export const KITS = {
     comboAttacks: ["dummySwing"],
     removeOnDeath: false,
     spin: null,
+    jump: null,
+    armor: null,
   },
   oniGrunt: {
     moveSpeed: 40,
@@ -115,6 +147,8 @@ export const KITS = {
     comboAttacks: ["oniSlash"],
     removeOnDeath: true,
     spin: null,
+    jump: null,
+    armor: null,
   },
   oniArcher: {
     moveSpeed: 34,
@@ -129,6 +163,40 @@ export const KITS = {
     comboAttacks: ["oniBolt"],
     removeOnDeath: true,
     spin: null,
+    jump: null,
+    armor: null,
+  },
+  oniSweeper: {
+    moveSpeed: 36,
+    feet: { w: 10, h: 6 },
+    bodyHeight: 20,
+    maxHp: 28,
+    hpFloor: 0,
+    regenDelay: 0,
+    regenPerTick: 0,
+    hurtStun: 16,
+    hurtIframes: 0,
+    comboAttacks: ["sweeperSweep"],
+    removeOnDeath: true,
+    spin: null,
+    jump: null,
+    armor: null,
+  },
+  oniBrute: {
+    moveSpeed: 26,
+    feet: { w: 14, h: 8 },
+    bodyHeight: 30,
+    maxHp: 320,
+    hpFloor: 0,
+    regenDelay: 0,
+    regenPerTick: 0,
+    hurtStun: 12,
+    hurtIframes: 0,
+    comboAttacks: ["bruteSmash", "bruteSlam", "bruteCrush", "bruteSweep"],
+    removeOnDeath: true,
+    spin: null,
+    jump: null,
+    armor: { attackDamageScale: 0.5, spinDamageScale: 0.35 },
   },
 } as const satisfies Record<string, KitData>;
 

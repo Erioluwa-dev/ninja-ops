@@ -55,6 +55,9 @@ export interface CombatState {
   attackCounter: boolean;
   attackBuffer: number;
   dodgeBuffer: number;
+  jumpBuffer: number;
+  /** Frames since takeoff; runs on through the landing recovery. */
+  jumpFrame: number;
   dodgeFrame: number;
   dodgeDir: Vec2;
   dodgeCooldown: number;
@@ -90,6 +93,10 @@ export interface MobAi {
   patience: number;
   /** Circling direction, 1 or -1. */
   strafe: number;
+  /** Attack id chosen for the next swing; null uses the kit's first attack. */
+  move: string | null;
+  /** Whether the target was spinning when `move` was picked. */
+  moveSpin: boolean;
 }
 
 export interface Entity {

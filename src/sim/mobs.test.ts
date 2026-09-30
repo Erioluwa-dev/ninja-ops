@@ -398,14 +398,15 @@ describe("death and defeat", () => {
 });
 
 describe("spawner", () => {
-  it("spawns 3 melee and 2 ranged oni mobs on distinct spots", () => {
+  it("spawns 3 melee, 2 ranged and 1 sweeper oni mobs on distinct spots", () => {
     const { state } = world();
     const mobs = spawnWave(state);
     expect(mobs.filter((m) => m.mobType === "melee")).toHaveLength(3);
     expect(mobs.filter((m) => m.mobType === "ranged")).toHaveLength(2);
+    expect(mobs.filter((m) => m.mobType === "sweeper")).toHaveLength(1);
     for (const m of mobs) expect(m.faction).toBe("oni");
     const spots = new Set(mobs.map((m) => `${m.pos.x},${m.pos.y}`));
-    expect(spots.size).toBe(5);
+    expect(spots.size).toBe(6);
     expect(new Set(state.entities.map((e) => e.id)).size).toBe(
       state.entities.length,
     );

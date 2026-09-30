@@ -2,6 +2,7 @@ import { getAttack, getKit, type Tuning } from "../data/tuning";
 import { attackTotalFrames } from "./attack";
 import { moveAndCollide } from "./collision";
 import type { Intent } from "./intent";
+import { jumpHeight } from "./jump";
 import { fireProjectile } from "./projectiles";
 import { dizzyFrames, runSpinHooks, spinDataOf } from "./spin";
 import { canEnterState, clearAttack, clearSpin, enterStun } from "./states";
@@ -19,6 +20,7 @@ function registerPresses(e: Entity, intent: Intent, tuning: Tuning): void {
   // Runs during hitstop too: a press made while frozen must not be lost.
   if (intent.attackPress) e.combat.attackBuffer = tuning.combat.inputBuffer;
   if (intent.dodgePress) e.combat.dodgeBuffer = tuning.combat.inputBuffer;
+  if (intent.jumpPress) e.combat.jumpBuffer = tuning.combat.inputBuffer;
 }
 
 function tickTimers(e: Entity, tuning: Tuning): void {
@@ -28,6 +30,7 @@ function tickTimers(e: Entity, tuning: Tuning): void {
 
   c.attackBuffer = Math.max(0, c.attackBuffer - 1);
   c.dodgeBuffer = Math.max(0, c.dodgeBuffer - 1);
+  c.jumpBuffer = Math.max(0, c.jumpBuffer - 1);
   c.dodgeCooldown = Math.max(0, c.dodgeCooldown - 1);
   c.hurtIframes = Math.max(0, c.hurtIframes - 1);
   c.counterWindow = Math.max(0, c.counterWindow - 1);
@@ -53,6 +56,7 @@ function startAttack(
   intent: Intent,
   tuning: Tuning,
   comboIndex: number,
+  opener: boolean,
 ): void {
   const attackId = getKit(tuning, e.kitId).comboAttacks[comboIndex];
   if (attackId === undefined) return;
@@ -65,7 +69,7 @@ function startAttack(
   c.dodgeFrame = 0;
   c.blockFrame = 0;
   // Only the opener of a chain is a counter; the window is spent on use.
-  c.attackCounter = wasCounter && comboIndex === 0;
+  c.attackCounter = wasCounter && opener;
   if (c.attackCounter) c.counterWindow = 0;
   e.state = "attack";
   if (intent.moveX !== 0 || intent.moveY !== 0) {
@@ -87,6 +91,25 @@ function startDodge(e: Entity, intent: Intent, tuning: Tuning): void {
   e.state = "dodge";
 }
 
+function startJump(e: Entity): void {
+  clearAttack(e);
+  const c = e.combat;
+  c.attackBuffer = 0;
+  c.dodgeBuffer = 0;
+  c.jumpBuffer = 0;
+  c.dodgeFrame = 0;
+  c.blockFrame = 0;
+  c.jumpFrame = 0;
+  e.state = "jump";
+}
+
+/** The chosen attack's slot in the kit, or the first when none was asked for. */
+function openerIndex(e: Entity, intent: Intent, tuning: Tuning): number {
+  if (intent.attackId === null) return 0;
+  const index = getKit(tuning, e.kitId).comboAttacks.indexOf(intent.attackId);
+  return Math.max(0, index);
+}
+
 function startSpin(e: Entity): void {
   clearAttack(e);
   clearSpin(e);
@@ -102,6 +125,22 @@ function startBlock(e: Entity): void {
   clearAttack(e);
   e.combat.blockFrame = 0;
   e.state = "block";
+}
+
+function advanceJump(e: Entity, tuning: Tuning): void {
+  const jump = getKit(tuning, e.kitId).jump;
+  const c = e.combat;
+  if (!jump) {
+    e.state = "idle";
+    e.z = 0;
+    return;
+  }
+  c.jumpFrame += 1;
+  e.z = jumpHeight(jump, c.jumpFrame);
+  if (c.jumpFrame >= jump.frames + jump.landingRecovery) {
+    c.jumpFrame = 0;
+    e.state = "idle";
+  }
 }
 
 /** Advances the state the entity was already in; may free it. */
@@ -150,7 +189,7 @@ function advanceState(
       const next = c.comboIndex + 1;
       const hasNext = next < getKit(tuning, e.kitId).comboAttacks.length;
       if (c.attackBuffer > 0 && hasNext) {
-        startAttack(e, intent, tuning, next);
+        startAttack(e, intent, tuning, next, false);
       } else {
         clearAttack(e);
         e.state = "idle";
@@ -168,6 +207,9 @@ function advanceState(
     case "spin":
       advanceSpin(state, e, intent);
       break;
+    case "jump":
+      advanceJump(e, tuning);
+      break;
     default:
       break;
   }
@@ -175,7 +217,7 @@ function advanceState(
 
 function chooseState(e: Entity, intent: Intent, tuning: Tuning): void {
   const c = e.combat;
-  const spin = getKit(tuning, e.kitId).spin;
+  const { spin, jump } = getKit(tuning, e.kitId);
 
   if (
     c.dodgeBuffer > 0 &&
@@ -201,12 +243,16 @@ function chooseState(e: Entity, intent: Intent, tuning: Tuning): void {
     startSpin(e);
   }
 
+  if (jump && c.jumpBuffer > 0 && canEnterState(e.state, "jump")) {
+    startJump(e);
+  }
+
   // A live counter window lets the punish cut through block and dodge; a plain
   // attack press still loses to them by priority.
   const counterCut =
     c.counterWindow > 0 && (e.state === "block" || e.state === "dodge");
   if (c.attackBuffer > 0 && (canEnterState(e.state, "attack") || counterCut)) {
-    startAttack(e, intent, tuning, 0);
+    startAttack(e, intent, tuning, openerIndex(e, intent, tuning), true);
   }
 }
 
@@ -225,6 +271,14 @@ function applyVelocity(e: Entity, intent: Intent, tuning: Tuning): void {
       break;
     case "spin": {
       const scale = getKit(tuning, e.kitId).spin?.moveSpeedScale ?? 0;
+      e.vel.x = intent.moveX * speed * scale;
+      e.vel.y = intent.moveY * speed * scale;
+      break;
+    }
+    case "jump": {
+      const jump = getKit(tuning, e.kitId).jump;
+      const steering = jump !== null && e.combat.jumpFrame < jump.frames;
+      const scale = steering ? jump.airSteerScale : 0;
       e.vel.x = intent.moveX * speed * scale;
       e.vel.y = intent.moveY * speed * scale;
       break;

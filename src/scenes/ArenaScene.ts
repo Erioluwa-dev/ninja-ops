@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { WAVES } from "../data/mobs";
 import type { TuningPanel } from "../dev/tuningPanel";
 import { PhaserInput } from "../input";
 import { SimRenderer } from "../render";
@@ -81,7 +82,8 @@ export class ArenaScene extends Phaser.Scene {
     if (snapshot.debugPressed) this.view.toggleDebug();
     if (snapshot.tuningPanelPressed) this.panel?.toggle();
     if (snapshot.dummyAttackPressed) this.toggleDummyAttack();
-    if (snapshot.spawnWavePressed) spawnWave(this.state);
+    if (snapshot.spawnWavePressed) spawnWave(this.state, WAVES[0]);
+    if (snapshot.spawnBrutePressed) spawnWave(this.state, WAVES[1]);
 
     const pauseHeld = snapshot.actions.pause;
     if (pauseHeld && !this.pauseWasHeld) {

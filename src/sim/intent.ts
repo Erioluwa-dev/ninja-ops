@@ -8,9 +8,12 @@ export interface Intent {
   moveY: number;
   attackPress: boolean;
   dodgePress: boolean;
+  jumpPress: boolean;
   blockHeld: boolean;
   blockPress: boolean;
   spinHeld: boolean;
+  /** Which of the kit's attacks an attack press starts; null is the first. */
+  attackId: string | null;
   /** Direction to face while free, e.g. toward a target. */
   aim: Vec2 | null;
 }
@@ -20,9 +23,11 @@ export const NO_INTENT: Intent = {
   moveY: 0,
   attackPress: false,
   dodgePress: false,
+  jumpPress: false,
   blockHeld: false,
   blockPress: false,
   spinHeld: false,
+  attackId: null,
   aim: null,
 };
 
@@ -41,9 +46,11 @@ export function playerIntent(input: ActionFrame, prev: ActionFrame): Intent {
     moveY: move.y,
     attackPress: input.attack && !prev.attack,
     dodgePress: input.dodge && !prev.dodge,
+    jumpPress: input.jump && !prev.jump,
     blockHeld: input.block,
     blockPress: input.block && !prev.block,
     spinHeld: input.spin,
+    attackId: null,
     aim: null,
   };
 }

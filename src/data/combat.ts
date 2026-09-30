@@ -27,6 +27,8 @@ export interface CombatData {
     /** Fraction of the attack's knockback a blocker is pushed back. */
     pushbackScale: number;
   };
+  /** An entity more than this many px above the ground is airborne. */
+  airborneZ: number;
   hurt: {
     /** Per-tick velocity multiplier for knockback. */
     knockbackDecay: number;
@@ -95,6 +97,7 @@ export const COMBAT = {
     guardBreakStun: 60,
     pushbackScale: 0.6,
   },
+  airborneZ: 4,
   hurt: {
     knockbackDecay: 0.85,
     knockbackStop: 4,
