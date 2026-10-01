@@ -29,6 +29,13 @@ Revised from the Phase 1 PRD (Claude Docs: "Ninjago GBA RPG: Phase 1 PRD (Combat
   - **Path kits as data.** The player's move set (combo, defenses, signature move) comes from a kit definition. Spinjitzu is the ninja kit's signature; the Oni path gets its own signature move later without touching the state machine.
 
 - **Wave loop (Phase 8):** `state.arenaFlow` runs `intro` -> `wave` (data list in `src/data/flow.ts`, breather between) -> `boss` -> `victory`, or `defeat` on the player's death. `createSim` defaults to an inert `sandbox` so scripted tests are unchanged. The scene starts in `intro` (attack starts the run, F6 toggles sandbox); a result panel restarts on attack with a seed derived from the base seed, keeping the live tuning object.
+- **Art pass (Phase 9):** [Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) by pixel-boy is the base pack: CC0, 16×16 like our tile grid, with characters, monsters, bosses, FX, UI and fonts. Other packs come in only if they match its outline weight and palette.
+  - **Render-only.** Sprite choice per faction, kit and mob type lives in `src/render`; `src/sim` gains no art fields and its tests are unchanged.
+  - **Frames come from sim state, not Phaser animation clocks.** The renderer picks a frame from the entity's state, timer and attack phase, so hitstop freezes the sprite and the active frame lines up with the hitbox.
+  - **Readability over decoration.** Telegraph, sweep, unblockable, armor and stagger cues stay as tints, outlines and FX over the sprites, because the pack's few attack frames can't carry them alone.
+  - **Rectangles stay** behind a debug toggle for hitbox work.
+  - **Only files the game loads are committed**, under `public/assets/ninja-adventure/` with the pack's license. The 89 MB zip stays out of git.
+  - Music and SFX stay out of scope for this phase.
 
 ## Stack
 
@@ -84,6 +91,7 @@ Each phase ends with something playable. Phases 2 and 3 are gates: don't move on
 | 6 | Jump | z-offset arc, airborne rules, sweep mob | Jump beats sweeps and doesn't trivialize other attacks |
 | 7 | Tough enemy | Health bar, spin armor, punish move, unblockable, sweep | The fight forces a mix of dodge, block, jump and careful spin |
 | 8 | Elements and polish | Fire and earth, tuning pass, wave loop, result + restart | You replay for fun; a third element is a data entry |
+| 9 | Art pass | Ninja Adventure tiles, sprites, FX and font in the renderer; state-driven frames; rectangle debug toggle | Every rectangle has a sprite, fights read as clearly as they did with rectangles, and the toggle brings hitboxes back |
 
 ## Testing
 
@@ -113,4 +121,4 @@ Each phase ends with something playable. Phases 2 and 3 are gates: don't move on
 
 ## Out of scope for Phase 1
 
-The Oni path (kit, story branch, allied Oni), story, dialogue, quests, overworld, towns, dojo, dungeons, progression, other paths, airborne attacks, more than two elements, character creator, rebinding UI, menus, saves, real sprites, animation, music, final SFX, multiplayer.
+The Oni path (kit, story branch, allied Oni), story, dialogue, quests, overworld, towns, dojo, dungeons, progression, other paths, airborne attacks, more than two elements, character creator, rebinding UI, menus, saves, music, final SFX, multiplayer. (Sprites and animation moved into Phase 9.)
