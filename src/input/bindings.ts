@@ -31,16 +31,16 @@ export interface Bindings {
 // Keyboard uses KeyboardEvent.code; gamepad uses W3C "standard" button indices.
 export const DEFAULT_BINDINGS: Bindings = {
   keyboard: {
-    left: ["ArrowLeft", "KeyA"],
-    right: ["ArrowRight", "KeyD"],
-    up: ["ArrowUp", "KeyW"],
-    down: ["ArrowDown", "KeyS"],
+    left: ["ArrowLeft"],
+    right: ["ArrowRight"],
+    up: ["ArrowUp"],
+    down: ["ArrowDown"],
     actions: {
-      attack: ["KeyJ"],
-      dodge: ["KeyK"],
-      jump: ["Space"],
-      block: ["KeyL"],
-      spin: ["KeyI", "KeyR"],
+      attack: ["KeyA"],
+      dodge: ["KeyQ"],
+      jump: ["KeyX"],
+      block: ["KeyD"],
+      spin: ["KeyW"],
       pause: ["Escape"],
     },
     debug: ["Backquote"],

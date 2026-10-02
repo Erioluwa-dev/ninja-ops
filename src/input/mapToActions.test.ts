@@ -36,7 +36,7 @@ describe("mapToActions", () => {
   });
 
   it("maps keyboard actions as held states", () => {
-    const a = map(raw(["KeyJ", "KeyK", "Space", "KeyL", "KeyI", "Escape"]));
+    const a = map(raw(["KeyA", "KeyQ", "KeyX", "KeyD", "KeyW", "Escape"]));
     expect(a).toMatchObject({
       attack: true,
       dodge: true,
@@ -47,10 +47,38 @@ describe("mapToActions", () => {
     });
   });
 
-  it("accepts arrows and WASD", () => {
+  // The owner's chosen layout; a change here must be deliberate, not a side effect.
+  it("keeps the agreed keyboard layout", () => {
+    const { keyboard } = DEFAULT_BINDINGS;
+    expect({
+      left: keyboard.left,
+      right: keyboard.right,
+      up: keyboard.up,
+      down: keyboard.down,
+      ...keyboard.actions,
+    }).toEqual({
+      left: ["ArrowLeft"],
+      right: ["ArrowRight"],
+      up: ["ArrowUp"],
+      down: ["ArrowDown"],
+      attack: ["KeyA"],
+      dodge: ["KeyQ"],
+      jump: ["KeyX"],
+      block: ["KeyD"],
+      spin: ["KeyW"],
+      pause: ["Escape"],
+    });
+  });
+
+  it("moves with arrow keys only", () => {
     expect(map(raw(["ArrowLeft"])).moveX).toBe(-1);
-    expect(map(raw(["KeyD"])).moveX).toBe(1);
-    expect(map(raw(["KeyW"])).moveY).toBe(-1);
+    expect(map(raw(["ArrowRight"])).moveX).toBe(1);
+    expect(map(raw(["ArrowUp"])).moveY).toBe(-1);
+    // Letter keys are all actions now, so none of them may also steer.
+    expect(map(raw(["KeyA", "KeyD", "KeyW", "KeyS"]))).toMatchObject({
+      moveX: 0,
+      moveY: 0,
+    });
     expect(map(raw(["ArrowDown"])).moveY).toBe(1);
   });
 
@@ -103,7 +131,7 @@ describe("mapToActions", () => {
   });
 
   it("ORs keyboard and gamepad actions", () => {
-    const a = map(raw(["KeyJ"], pad([0, 0], [2])));
+    const a = map(raw(["KeyA"], pad([0, 0], [2])));
     expect(a.attack).toBe(true);
     expect(a.jump).toBe(true);
     expect(a.dodge).toBe(false);
