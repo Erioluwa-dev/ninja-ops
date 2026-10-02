@@ -8,7 +8,8 @@ const parent = document.getElementById("game");
 if (!parent) throw new Error("Missing #game mount element");
 
 const game = new Phaser.Game({
-  type: Phaser.AUTO,
+  // NineSlice and tint-fill modes only render under WebGL; Canvas would silently drop them.
+  type: Phaser.WEBGL,
   parent,
   width: WIDTH,
   height: HEIGHT,

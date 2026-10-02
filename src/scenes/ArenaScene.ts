@@ -3,6 +3,7 @@ import { WAVES } from "../data/mobs";
 import type { TuningPanel } from "../dev/tuningPanel";
 import { PhaserInput } from "../input";
 import { SimRenderer } from "../render";
+import { preloadAssets } from "../render/assets";
 import {
   type ActionFrame,
   canRestart,
@@ -62,11 +63,19 @@ export class ArenaScene extends Phaser.Scene {
     super("ArenaScene");
   }
 
+  preload(): void {
+    preloadAssets(this);
+  }
+
   create(): void {
     this.state = createSim({ seed: SEED, mode: "intro" });
     this.runIndex = 0;
     this.controls = new PhaserInput(this);
     this.view = new SimRenderer(this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.view?.destroy();
+      this.view = null;
+    });
     // Inline in the DEV branch so the bundler drops the import, and Tweakpane
     // with it, from production builds.
     if (import.meta.env.DEV) {
