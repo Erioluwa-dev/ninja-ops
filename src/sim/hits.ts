@@ -4,6 +4,7 @@ import { getAttack, getKit, type Tuning } from "../data/tuning";
 import { armorScale } from "./armor";
 import { activeHitbox, currentAttack } from "./attack";
 import { boxesOverlap, feetBox } from "./collision";
+import { onGhostHit, onPerfectDodge, registerLandedHit } from "./echo";
 import { hazardBox, hazardKey } from "./hazards";
 import { isAirborne } from "./jump";
 import { projectileBox } from "./projectiles";
@@ -54,16 +55,21 @@ function openCounterWindow(e: Entity, tuning: Tuning): void {
   e.combat.counterWindow = tuning.combat.counter.window;
 }
 
-function applyDamage(contact: Contact, tuning: Tuning): void {
+function applyDamage(contact: Contact, state: SimState): void {
+  const { tuning } = state;
   const { attacker, target, hit, knockDir } = contact;
   const { counter, meters } = tuning.combat;
   const kit = getKit(tuning, target.kitId);
   const isCounter = attacker?.combat.attackCounter ?? false;
   const armor = armorScale(target, contact.fromSpin, tuning);
-  const baseDamage =
+  const counterDamage =
     isCounter && counter.bonusDamage
       ? hit.damage * counter.damageMultiplier
       : hit.damage;
+  const baseDamage =
+    attacker?.kind === "ghost"
+      ? counterDamage * tuning.echo.ghostDamageScale
+      : counterDamage;
 
   target.hp = Math.max(kit.hpFloor, target.hp - baseDamage * (armor ?? 1));
   target.combat.hpRegenDelay = kit.regenDelay;
@@ -93,10 +99,15 @@ function applyDamage(contact: Contact, tuning: Tuning): void {
       attacker.combat.spinMeter + meters.spinGainPerHit,
     );
   }
-  if (target.hp <= 0) enterDead(target, tuning);
+  if (attacker?.kind === "player") registerLandedHit(state);
+  if (target.hp <= 0) {
+    enterDead(target, tuning);
+    if (target.kind === "ghost") onGhostHit(state);
+  }
 }
 
-function resolveContact(contact: Contact, tuning: Tuning): HitOutcome {
+function resolveContact(contact: Contact, state: SimState): HitOutcome {
+  const { tuning } = state;
   const { attacker, target, hit, origin } = contact;
   const { dodge, block, parry, meters } = tuning.combat;
   const tc = target.combat;
@@ -112,6 +123,7 @@ function resolveContact(contact: Contact, tuning: Tuning): HitOutcome {
     ) {
       contact.spend();
       openCounterWindow(target, tuning);
+      if (target.kind === "player") onPerfectDodge(state);
       tc.spinMeter = Math.min(
         meters.spinMax,
         tc.spinMeter + meters.perfectDodgeSpinGain,
@@ -146,7 +158,7 @@ function resolveContact(contact: Contact, tuning: Tuning): HitOutcome {
     return "blocked";
   }
 
-  applyDamage(contact, tuning);
+  applyDamage(contact, state);
   freeze(attacker, target, hit.hitstop);
   return "hit";
 }
@@ -290,7 +302,7 @@ function projectileContacts(state: SimState): void {
           flinch: true,
           spend: () => p.spent.push(target.id),
         },
-        tuning,
+        state,
       );
       // A dodge or hurt i-frames let it fly on; anything else consumes it.
       if (outcome !== "dodged" && outcome !== "iframes") p.life = 0;
@@ -305,6 +317,6 @@ export function resolveHits(state: SimState): void {
   meleeContacts(state, contacts);
   spinContacts(state, contacts);
   hazardContacts(state, contacts);
-  for (const contact of contacts) resolveContact(contact, state.tuning);
+  for (const contact of contacts) resolveContact(contact, state);
   projectileContacts(state);
 }

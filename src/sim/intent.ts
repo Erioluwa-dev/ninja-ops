@@ -55,10 +55,15 @@ export function playerIntent(input: ActionFrame, prev: ActionFrame): Intent {
   };
 }
 
-/** Closest living hostile; neutrals are hittable but never something to hunt. */
+/**
+ * Closest living hostile; neutrals are hittable but never something to hunt.
+ * A taunting ghost (Decoy Veil) outranks anything nearer.
+ */
 export function nearestHostile(state: SimState, self: Entity): Entity | null {
   let best: Entity | null = null;
   let bestDist = Number.POSITIVE_INFINITY;
+  let taunter: Entity | null = null;
+  let taunterDist = Number.POSITIVE_INFINITY;
   for (const other of state.entities) {
     if (other === self || other.state === "dead") continue;
     if (!isHostile(self.faction, other.faction)) continue;
@@ -67,8 +72,12 @@ export function nearestHostile(state: SimState, self: Entity): Entity | null {
       best = other;
       bestDist = d;
     }
+    if (other.ghost?.taunt && d < taunterDist) {
+      taunter = other;
+      taunterDist = d;
+    }
   }
-  return best;
+  return taunter ?? best;
 }
 
 function nearestTarget(state: SimState, self: Entity): Entity | null {

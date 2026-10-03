@@ -22,6 +22,7 @@ const BOSS_BAR = 0xd83a3a;
 const GUARD_BAR = 0x50c8ff;
 const SPIN_BAR = 0xffd040;
 const SPIN_READY = 0xfff0a0;
+const ECHO_PIP = 0x7fe0ff;
 const VICTORY = 0x80ff90;
 const DEFEAT = 0xff6060;
 const NO_ELEMENT = 0x8a8a9a;
@@ -31,6 +32,9 @@ const BAR_UNDER = 0x303030;
 const HUD_BAR_W = 60;
 const HUD_BAR_X = 10;
 const BAR_H = 6;
+// The resonance row sits under the spin bar: four pips spanning the bar width.
+const PIP_Y = 18;
+const PIP_GAP = 4;
 // The boss bar sits in the top wall row, right of the meters, so its name label
 // can never collide with the bottom-left debug text.
 const BOSS_BAR_W = 152;
@@ -71,6 +75,7 @@ export class HudView implements RenderView {
   private readonly pausedLabel: HudLabel;
   private readonly guardLabel: HudLabel;
   private readonly spinLabel: HudLabel;
+  private readonly echoLabel: HudLabel;
   private panelHeight = 0;
 
   constructor(scene: Phaser.Scene) {
@@ -126,6 +131,13 @@ export class HudView implements RenderView {
       color: SPIN_BAR,
     });
     this.spinLabel.setText("S");
+    this.echoLabel = new HudLabel(scene, {
+      x: 1,
+      y: 16,
+      depth: text,
+      color: ECHO_PIP,
+    });
+    this.echoLabel.setText("E");
     this.bossLabel = new HudLabel(scene, {
       x: BOSS_BAR_X,
       y: BOSS_BAR_Y - 1,
@@ -187,6 +199,7 @@ export class HudView implements RenderView {
     this.labels = [
       this.guardLabel,
       this.spinLabel,
+      this.echoLabel,
       this.bossLabel,
       this.waveLabel,
       this.elementLabel,
@@ -241,7 +254,9 @@ export class HudView implements RenderView {
     for (const frame of this.frames) frame.setVisible(shown);
     this.guardLabel.setVisible(shown);
     this.spinLabel.setVisible(shown);
+    this.echoLabel.setVisible(shown);
     if (!player) return;
+    this.drawPips(state);
     const g = this.gfx;
     const { guardMax } = state.tuning.combat.block;
     const { spinMax } = state.tuning.combat.meters;
@@ -272,6 +287,17 @@ export class HudView implements RenderView {
         1,
         BAR_H,
       );
+    }
+  }
+
+  private drawPips(state: SimState): void {
+    const { maxPips } = state.tuning.echo;
+    const { resonance } = state.echo;
+    const width = Math.floor((HUD_BAR_W - PIP_GAP * (maxPips - 1)) / maxPips);
+    for (let i = 0; i < maxPips; i++) {
+      const x = HUD_BAR_X + i * (width + PIP_GAP);
+      this.gfx.fillStyle(i < resonance ? ECHO_PIP : BAR_UNDER, 1);
+      this.gfx.fillRect(x, PIP_Y, width, BAR_H - 2);
     }
   }
 

@@ -72,5 +72,6 @@ export function createEntity(
     state: "idle",
     combat: createCombatState(tuning),
     aiTimer: tuning.combat.dummy.interval,
+    ghost: null,
   };
 }

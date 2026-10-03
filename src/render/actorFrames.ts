@@ -69,7 +69,7 @@ const MOB_SKINS: Record<string, ActorSkin> = {
 const DUMMY_SKIN = gridSkin(ACTOR_KEY.dummy);
 
 export function actorSkin(e: Entity): ActorSkin {
-  if (e.kind === "player") return NINJA_SKIN;
+  if (e.kind === "player" || e.kind === "ghost") return NINJA_SKIN;
   if (e.kind === "dummy") return DUMMY_SKIN;
   return (
     (e.mobType !== null ? MOB_SKINS[e.mobType] : undefined) ??

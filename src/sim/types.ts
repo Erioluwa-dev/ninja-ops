@@ -1,4 +1,5 @@
 import type { HitData } from "../data/attacks";
+import type { EchoMoveId } from "../data/echo";
 import type { Faction } from "../data/factions";
 import type { Tuning } from "../data/tuning";
 
@@ -106,8 +107,8 @@ export interface MobAi {
 
 export interface Entity {
   id: number;
-  /** Which driver feeds intents: input, a script, or the mob AI. */
-  kind: "player" | "dummy" | "mob";
+  /** Which driver feeds intents: input, a script, the mob AI, or an Echo replay. */
+  kind: "player" | "dummy" | "mob" | "ghost";
   mobType: string | null;
   ai: MobAi | null;
   /** Key into tuning.elements whose spin modifiers this entity gets; null for none. */
@@ -129,6 +130,67 @@ export interface Entity {
   combat: CombatState;
   /** Frames until the scripted dummy starts its next swing. */
   aiTimer: number;
+  /** Replay driver of an Echo ghost; null for everything else. */
+  ghost: GhostState | null;
+}
+
+/** What an Echo ghost is doing: which recorded input it replays and how long it stays. */
+export interface GhostState {
+  ownerId: number;
+  move: EchoMoveId;
+  /** Tick of the recorded frame it replays next; advances one per tick. */
+  replayTick: number;
+  /** Leading frames replayed whole; the first is forced to carry `press`. */
+  actFrames: number;
+  /** After those, keep copying the player's movement (not buttons) with the same delay. */
+  follow: boolean;
+  /** The button the first replayed frame must carry even if the game had buffered it. */
+  press: "attack" | "dodge" | null;
+  /** Frames replayed so far. */
+  cursor: number;
+  /** The previous replayed frame, so presses are rising edges as for the player. */
+  prev: ActionFrame;
+  /** Forces which kit attack a replayed press starts (Twin Strike's finisher). */
+  attackId: string | null;
+  /** Frames until it fades without having been hit. */
+  ttl: number;
+  /** Enemies prefer a taunting ghost as their target (Decoy Veil). */
+  taunt: boolean;
+}
+
+/** One recorded tick of the player: the input and where the feet stood before it ran. */
+export interface EchoFrame {
+  tick: number;
+  input: ActionFrame;
+  pos: Vec2;
+}
+
+/** A ghost that will appear once its delay has passed. */
+export interface EchoPending {
+  move: EchoMoveId;
+  /** Tick the recorded action began, which selects the replay frames. */
+  startTick: number;
+  spawnTick: number;
+  facing: Vec2;
+  attackId: string | null;
+}
+
+export interface EchoState {
+  /** Ring of the player's last `echo.bufferFrames` ticks, oldest first. */
+  buffer: EchoFrame[];
+  resonance: number;
+  /** Landed hits since the last pip. */
+  hitCount: number;
+  unlocked: EchoMoveId[];
+  ghostLimit: number;
+  pending: EchoPending[];
+  /** Last tick on which a second dodge press snaps to the ghost; -1 when closed. */
+  rewindUntil: number;
+  /** Edge detectors for the player's own actions. */
+  wasDodging: boolean;
+  wasFinisher: boolean;
+  /** Consecutive ticks the player has stood idle. */
+  stillFrames: number;
 }
 
 export interface Projectile {
@@ -212,4 +274,5 @@ export interface SimState {
   tuning: Tuning;
   /** Last tick's input, so presses are derived as rising edges inside the sim. */
   prevInput: ActionFrame;
+  echo: EchoState;
 }

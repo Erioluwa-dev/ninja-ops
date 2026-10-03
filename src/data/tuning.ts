@@ -1,5 +1,6 @@
 import { ATTACKS, type AttackData } from "./attacks";
 import { COMBAT, type CombatData } from "./combat";
+import { ECHO, type EchoData } from "./echo";
 import { ELEMENTS, type ElementData } from "./elements";
 import { FLOW, type FlowData } from "./flow";
 import { KITS, type KitData } from "./kits";
@@ -15,6 +16,7 @@ export interface Tuning {
   combat: CombatData;
   elements: Record<string, ElementData>;
   flow: FlowData;
+  echo: EchoData;
 }
 
 export function createTuning(): Tuning {
@@ -26,6 +28,7 @@ export function createTuning(): Tuning {
     combat: structuredClone(COMBAT),
     elements: structuredClone(ELEMENTS),
     flow: structuredClone(FLOW),
+    echo: structuredClone(ECHO),
   };
 }
 

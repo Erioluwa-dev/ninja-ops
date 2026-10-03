@@ -62,7 +62,10 @@ function blockersOverlapping(
 ): Box[] {
   const box = feetBox(mover);
   const blockers = solidTilesOverlapping(arena, box);
+  // A ghost is only an afterimage: walls stop it, bodies never do, either way.
+  if (mover.kind === "ghost") return blockers;
   for (const other of others) {
+    if (other.kind === "ghost") continue;
     // A corpse fades in place and must not wall anyone in.
     if (other.id === mover.id || other.state === "dead") continue;
     const otherBox = feetBox(other);

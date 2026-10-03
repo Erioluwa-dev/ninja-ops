@@ -13,6 +13,9 @@ const DUMMY_HOSTILE = 0xff8080;
 const SHADOW = 0x000000;
 const SHIELD = 0x9fe8ff;
 const HP_BAR = 0x50e070;
+// An Echo ghost is a faint, cool-tinted afterimage of the player.
+const GHOST_TINT = 0x7fe0ff;
+const GHOST_ALPHA = 0.45;
 const HP_BAR_W = 16;
 const OUTLINE_OFFSETS = [
   [-1, 0],
@@ -97,7 +100,9 @@ export class ActorView implements RenderView {
       this.drawDizzy(state, e);
     }
     for (const e of ordered) {
-      if (e.state !== "dead" && !isBoss(state, e)) this.drawHpBar(e);
+      if (e.state !== "dead" && e.kind !== "ghost" && !isBoss(state, e)) {
+        this.drawHpBar(e);
+      }
     }
     this.drawSilhouette(ordered);
   }
@@ -170,6 +175,7 @@ export class ActorView implements RenderView {
     );
     if (skin.layout === "brute") this.drawFacingWedge(e, cue.alpha);
 
+    const alpha = e.kind === "ghost" ? cue.alpha * GHOST_ALPHA : cue.alpha;
     const x = Math.round(e.pos.x + e.facing.x * cue.lunge);
     const y = Math.round(footBottom - e.z + e.facing.y * cue.lunge);
     const scaleY = (skin.height - cue.squash) / skin.height;
@@ -191,7 +197,7 @@ export class ActorView implements RenderView {
         .setPosition(x + dx, y + dy)
         .setFlipX(look.flipX)
         .setScale(1, scaleY)
-        .setAlpha(cue.alpha)
+        .setAlpha(alpha)
         .setDepth(layerDepth);
     };
 
@@ -200,6 +206,8 @@ export class ActorView implements RenderView {
     // attack. A multiply tint keeps the statue's gold readable under it.
     if (e.kind === "dummy" && e.faction === "oni") {
       sprite.body.setTint(DUMMY_HOSTILE);
+    } else if (e.kind === "ghost") {
+      sprite.body.setTint(GHOST_TINT);
     } else {
       sprite.body.clearTint();
     }
@@ -207,7 +215,7 @@ export class ActorView implements RenderView {
     sprite.wash.setVisible(cue.fill !== null);
     if (cue.fill !== null) {
       place(sprite.wash, 0, 0, depth + LAYER_EPSILON);
-      sprite.wash.setTint(cue.fill).setAlpha(cue.alpha * cue.fillAlpha);
+      sprite.wash.setTint(cue.fill).setAlpha(alpha * cue.fillAlpha);
     }
 
     sprite.outline.forEach((image, i) => {

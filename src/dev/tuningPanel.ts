@@ -57,6 +57,7 @@ export function createTuningPanel(tuning: Tuning): TuningPanel {
   addSection(pane, "kits", tuning.kits);
   addSection(pane, "elements", tuning.elements);
   addSection(pane, "flow", tuning.flow);
+  addSection(pane, "echo", tuning.echo);
   pane.hidden = true;
   return {
     toggle: () => {

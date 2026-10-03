@@ -118,6 +118,28 @@ export const KITS = {
     },
     armor: null,
   },
+  // The Echo ghost: one hit dissolves it, and it never spins (Echo Spin comes later).
+  echoGhost: {
+    moveSpeed: 60,
+    feet: { w: 10, h: 6 },
+    bodyHeight: 20,
+    maxHp: 1,
+    hpFloor: 0,
+    regenDelay: 0,
+    regenPerTick: 0,
+    hurtStun: 18,
+    hurtIframes: 0,
+    comboAttacks: ["ninjaHit1", "ninjaHit2", "ninjaHit3"],
+    removeOnDeath: true,
+    spin: null,
+    jump: {
+      frames: 34,
+      peakHeight: 24,
+      landingRecovery: 8,
+      airSteerScale: 0.7,
+    },
+    armor: null,
+  },
   dummy: {
     moveSpeed: 0,
     feet: { w: 12, h: 8 },

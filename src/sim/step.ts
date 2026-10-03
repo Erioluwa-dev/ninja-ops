@@ -1,6 +1,15 @@
 import { ARENA_LAYOUT } from "../data/arena";
+import type { EchoMoveId } from "../data/echo";
+import { ECHO_MOVE_IDS } from "../data/echo";
 import { createTuning, type Tuning } from "../data/tuning";
 import { createArena, tileCenter } from "./arena";
+import {
+  createEchoState,
+  ghostIntent,
+  recordFrame,
+  rewindIntent,
+  stepEcho,
+} from "./echo";
 import { createEntity } from "./entity";
 import { tickEntity } from "./fighter";
 import { createFlow, startRun, stepFlow } from "./flow";
@@ -34,6 +43,8 @@ export function createSim(opts: {
   tuning?: Tuning;
   mode?: SimMode;
   element?: string | null;
+  /** Echo moves the player has; the sandbox grants all of them. */
+  echoMoves?: readonly EchoMoveId[];
 }): SimState {
   const tuning = opts.tuning ?? createTuning();
   const arena = createArena();
@@ -74,6 +85,7 @@ export function createSim(opts: {
     defeated: false,
     tuning,
     prevInput: { ...IDLE_FRAME },
+    echo: createEchoState(tuning, opts.echoMoves ?? ECHO_MOVE_IDS),
   };
   if (mode === "run") startRun(state);
   return state;
@@ -94,6 +106,7 @@ export function restartSim(
     tuning: prev.tuning,
     mode,
     element: player?.element ?? null,
+    echoMoves: prev.echo.unlocked,
   });
 }
 
@@ -110,7 +123,11 @@ function intentFor(
   input: ActionFrame,
 ): Intent {
   if (entity.state === "dead") return NO_INTENT;
-  if (entity.kind === "player") return playerIntent(input, state.prevInput);
+  if (entity.kind === "player") {
+    const intent = playerIntent(input, state.prevInput);
+    return rewindIntent(state, entity, intent);
+  }
+  if (entity.kind === "ghost") return ghostIntent(state, entity);
   if (entity.kind === "mob") return mobIntent(state, entity);
   return dummyIntent(state, entity, state.tuning);
 }
@@ -134,12 +151,15 @@ export function step(state: SimState, input: ActionFrame): void {
   for (const entity of state.entities) {
     if (entity.kind === "dummy") syncDummyFaction(entity, state.tuning);
   }
+  const player = state.entities.find((e) => e.kind === "player");
+  if (player) recordFrame(state.echo, state.tuning, state.tick, player, input);
   stepHazards(state);
   const intents = state.entities.map((e) => intentFor(state, e, input));
   state.entities.forEach((entity, i) => {
     const intent = intents[i];
     if (intent) tickEntity(state, entity, intent);
   });
+  stepEcho(state);
   stepProjectiles(state);
   resolveHits(state);
   pruneTokens(state);
