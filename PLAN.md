@@ -122,3 +122,22 @@ Each phase ends with something playable. Phases 2 and 3 are gates: don't move on
 ## Out of scope for Phase 1
 
 The Oni path (kit, story branch, allied Oni), story, dialogue, quests, overworld, towns, dojo, dungeons, progression, other paths, airborne attacks, more than two elements, character creator, rebinding UI, menus, saves, music, final SFX, multiplayer. (Sprites and animation moved into Phase 9.)
+
+## Story phases 10–12
+
+Story work follows `docs/AGENT_STORY_RULES.md` (loaded via `CLAUDE.md`); content comes from `docs/STORY_BIBLE.md`, scope from `docs/PRD.md`. The sandbox architecture holds: deterministic `src/sim`, typed data in `src/data`, Phaser only renders. Story logic goes in `src/story`, story data in `src/data/story`.
+
+| # | Phase | Scope | Done when |
+|---|---|---|---|
+| 10 | Echo prototype | Recorder, ghost, resonance, Afterstep, Twin Strike, Decoy Veil, Rewind Step (E-1…E-5, E-7, E-8) | All four moves work in the sandbox; a ghost hit dissolves it and costs a pip |
+| 11 | Narrative core | Scene runner, state store, choice UI, save/load, no-kill invariant (N-1, N-2, N-3, N-8, N-9) | A test scene with two choices persists across save and load |
+| 12 | Chapter 1 slice | Scenes `ch1_s1`…`ch1_s9`, Skulkin faction, Blade Stage 1, corruption meter | Playable start to finish, both Scene 8 branches, both fixed points fire in every branch |
+
+### Decisions (PRD §10 defaults)
+
+- Q1 Echo; Q3 unnamed Skulkin General; Q4 one pip per perfect dodge and per three landed hits; Q5 trust 0–10 with perks at 3 and 6; Q9 four Ch1 moves (Afterstep, Twin Strike, Decoy Veil, Rewind Step); Q11 placeholder name "Fifth"; Q12 canon locations kept, invented village and collapsing building kept.
+- All Echo numbers live in `src/data/echo.ts` and are part of `Tuning`, so the Tweakpane panel edits them.
+- A ghost is an `Entity` of kind `ghost` with the owner's faction. It is driven by recorded `ActionFrame`s read from the buffer with a fixed delay, so it reuses `tickEntity`, the hit pipeline and attack data. Ghosts collide with walls only.
+- Afterstep's ghost keeps shadowing the player's movement for its lifetime; that trailing path is what Rewind Step snaps back to. Twin Strike's and Decoy Veil's ghosts do not follow.
+- A newer ghost replaces the oldest at the limit with no pip loss; only an enemy hit costs a pip.
+- Echo moves are gated by `SimState.echo.unlocked` (all four in the sandbox); story unlocks drive it in Phase 12.
