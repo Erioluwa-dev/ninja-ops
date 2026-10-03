@@ -11,6 +11,7 @@ export {
 export { type Box, feetBox, moveAndCollide } from "./collision";
 export { depthOrder } from "./depth";
 export { cycleElement, setElement } from "./elements";
+export { createEncounterSim, type EncounterContext } from "./encounter";
 export { createEntity } from "./entity";
 export { applyTeamFinisher } from "./finisher";
 export { canRestart, startRun } from "./flow";

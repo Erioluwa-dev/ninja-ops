@@ -16,6 +16,7 @@ export type Condition =
   | { kind: "trust"; ninja: NinjaId; min: number }
   | { kind: "villageStanding"; min: number }
   | { kind: "corruption"; atLeast?: number; atMost?: number }
+  | { kind: "bladeStage"; min: number }
   | { kind: "unlocked"; id: string }
   | { kind: "not"; of: Condition }
   | { kind: "all"; of: readonly Condition[] }
@@ -46,6 +47,8 @@ export function holds(state: StoryState, c: Condition): boolean {
         (c.atLeast === undefined || state.corruption >= c.atLeast) &&
         (c.atMost === undefined || state.corruption <= c.atMost)
       );
+    case "bladeStage":
+      return state.blade_stage >= c.min;
     case "unlocked":
       return state.unlocks.includes(c.id);
     case "not":

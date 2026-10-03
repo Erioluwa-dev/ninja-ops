@@ -1,11 +1,12 @@
-export const FACTION_IDS = ["ninja", "oni", "neutral"] as const;
+export const FACTION_IDS = ["ninja", "oni", "skulkin", "neutral"] as const;
 export type Faction = (typeof FACTION_IDS)[number];
 
 // Neutral has no entries: it is hittable but never hostile, so training dummies
 // and future props need no special-casing in targeting code.
 export const HOSTILITY = {
-  ninja: ["oni"],
+  ninja: ["oni", "skulkin"],
   oni: ["ninja"],
+  skulkin: ["ninja"],
   neutral: [],
 } as const satisfies Record<Faction, readonly Faction[]>;
 

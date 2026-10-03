@@ -109,15 +109,16 @@ export function findScene(
   return undefined;
 }
 
-function* walk(steps: readonly Step[]): Generator<Step> {
+/** Every step of a list, including those nested in branches and choice follow-ups. */
+export function* walkSteps(steps: readonly Step[]): Generator<Step> {
   for (const step of steps) {
     yield step;
     if (step.kind === "branch") {
-      for (const c of step.cases) yield* walk(c.steps);
-      if (step.otherwise) yield* walk(step.otherwise);
+      for (const c of step.cases) yield* walkSteps(c.steps);
+      if (step.otherwise) yield* walkSteps(step.otherwise);
     } else if (step.kind === "choice") {
       for (const option of step.options) {
-        if (option.followUp) yield* walk(option.followUp);
+        if (option.followUp) yield* walkSteps(option.followUp);
       }
     }
   }
@@ -143,7 +144,7 @@ export function validateRegistry(registry: ChapterRegistry): string[] {
         problems.push(`${scene.id} -> unknown scene ${scene.next}`);
       }
       const choiceIds = new Set<string>();
-      for (const step of walk(scene.steps)) {
+      for (const step of walkSteps(scene.steps)) {
         if (step.kind !== "choice") continue;
         const where = `${scene.id}/${step.id}`;
         if (choiceIds.has(step.id)) problems.push(`duplicate choice ${where}`);

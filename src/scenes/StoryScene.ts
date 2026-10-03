@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { STORY_REGISTRIES } from "../data/story";
+import { DEFAULT_STORY, STORY_REGISTRIES } from "../data/story";
 import { PhaserInput } from "../input";
 import { preloadAssets } from "../render/assets";
 import { ChoiceView } from "../render/ChoiceView";
@@ -12,6 +12,7 @@ import {
   loadStory,
   saveStory,
 } from "../render/storyStorage";
+import { applyEffect } from "../story/effects";
 import {
   advance,
   choose,
@@ -34,6 +35,11 @@ const DEFAULT_BACKDROP = 0x1c2a3a;
 const BACKDROPS: Record<string, number> = {
   test: 0x1c2a3a,
   monastery: 0x4a3a2a,
+  village: 0x3a4a2a,
+  caves: 0x2a2a3a,
+  chamber: 0x1a1a2a,
+  site: 0x4a2a2a,
+  night: 0x10142a,
 };
 const NAV_THRESHOLD = 0.5;
 
@@ -45,7 +51,7 @@ type Mode = "idle" | "dialogue" | "choice" | "notice" | "combat" | "done";
  * the arena. The story itself stays in `src/story` and `src/data/story`.
  */
 export class StoryScene extends Phaser.Scene {
-  private registryKey = "demo";
+  private registryKey = DEFAULT_STORY;
   private chapters: ChapterRegistry = [];
   private runner: RunnerState = createRunner(createStoryState());
   private resume: StoryResume | null = null;
@@ -101,7 +107,15 @@ export class StoryScene extends Phaser.Scene {
     if (this.resume) {
       this.registryKey = this.resume.registry;
       this.chapters = this.registryOrThrow(this.registryKey);
-      this.runner = this.resume.runner;
+      // The fight's resonance carries on into the story's next scene.
+      const { runner, resonance } = this.resume;
+      this.runner = {
+        ...runner,
+        story: applyEffect(runner.story, {
+          kind: "resonance",
+          delta: resonance - runner.story.resonance,
+        }),
+      };
       this.apply(
         resolveCombat(this.chapters, this.runner, this.resume.outcome),
       );
@@ -156,7 +170,7 @@ export class StoryScene extends Phaser.Scene {
   // `?story=<key>` picks the chapter set; `&new` ignores any save.
   private begin(): void {
     const params = new URLSearchParams(window.location.search);
-    this.registryKey = params.get("story") || "demo";
+    this.registryKey = params.get("story") || DEFAULT_STORY;
     this.chapters = this.registryOrThrow(this.registryKey);
     const saved =
       !params.has("new") && this.store ? loadStory(this.store) : null;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ATTACKS } from "../data/attacks";
+import { isHostile } from "../data/factions";
 import { KITS } from "../data/kits";
 import { MOBS } from "../data/mobs";
 import { createTuning, type Tuning } from "../data/tuning";
@@ -61,8 +62,13 @@ const run = (
 };
 
 describe("mob data", () => {
-  it("makes every mob attack telegraphed with a readable windup", () => {
-    for (const mob of Object.values(MOBS)) {
+  it("makes every enemy attack telegraphed with a readable windup", () => {
+    // Allies are on the player's side and swing like the player, untelegraphed.
+    const enemies = Object.values(MOBS).filter((m) =>
+      isHostile("ninja", m.faction),
+    );
+    expect(enemies.length).toBeGreaterThan(0);
+    for (const mob of enemies) {
       for (const id of KITS[mob.kitId].comboAttacks) {
         const attack = ATTACKS[id as keyof typeof ATTACKS];
         expect(attack.telegraph).toBe(true);

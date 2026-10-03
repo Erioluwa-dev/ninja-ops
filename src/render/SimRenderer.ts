@@ -31,6 +31,10 @@ export class SimRenderer {
     this.debug.toggle();
   }
 
+  setResultAction(label: string): void {
+    this.hud.setResultAction(label);
+  }
+
   setPaused(paused: boolean): void {
     this.hud.setPaused(paused);
   }

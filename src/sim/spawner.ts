@@ -11,7 +11,7 @@ export function spawnMob(state: SimState, mobType: string, pos: Vec2): Entity {
   const mob = createEntity(
     state.nextId,
     "mob",
-    "oni",
+    data.faction,
     data.kitId,
     pos,
     { x: -1, y: 0 },

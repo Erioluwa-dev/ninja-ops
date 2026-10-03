@@ -146,6 +146,7 @@ function spawnDue(state: SimState, player: Entity): void {
         ? tuning.echo.afterstep.lingerFrames
         : tuning.echo.twinStrike.lingerFrames,
       taunt: false,
+      flicker: p.move === "twinStrike" && echo.twinStrikeFlicker,
     });
   }
 }

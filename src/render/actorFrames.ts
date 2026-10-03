@@ -26,6 +26,8 @@ export interface ActorSkin {
   windupSquash: number;
   /** Px the sprite lunges along its facing during an active swing. */
   lunge: number;
+  /** Multiply tint that recolours a shared sheet; null leaves the art as drawn. */
+  tint: number | null;
 }
 
 const NINJA_SKIN: ActorSkin = {
@@ -37,9 +39,10 @@ const NINJA_SKIN: ActorSkin = {
   halfWidth: 8,
   windupSquash: 0,
   lunge: 0,
+  tint: null,
 };
 
-const gridSkin = (key: string): ActorSkin => ({
+const gridSkin = (key: string, tint: number | null = null): ActorSkin => ({
   layout: "grid",
   key,
   originY: 1,
@@ -47,7 +50,19 @@ const gridSkin = (key: string): ActorSkin => ({
   halfWidth: 8,
   windupSquash: 2,
   lunge: 2,
+  tint,
 });
+
+// The repo ships no skeleton sheet, so the Skulkin reuse existing art washed
+// bone-white until one is added from the Ninja Adventure pack.
+const BONE = 0xe8e4c8;
+const NINJA_TINTS = {
+  allyKai: 0xff6a5a,
+  allyJay: 0x5a9aff,
+  allyZane: 0xe8f4ff,
+  allyCole: 0x7a7a8a,
+} as const;
+const allySkin = (tint: number): ActorSkin => ({ ...NINJA_SKIN, tint });
 
 const BRUTE_SKIN: ActorSkin = {
   layout: "brute",
@@ -57,6 +72,7 @@ const BRUTE_SKIN: ActorSkin = {
   halfWidth: 19,
   windupSquash: 4,
   lunge: 3,
+  tint: null,
 };
 
 const MOB_SKINS: Record<string, ActorSkin> = {
@@ -64,6 +80,13 @@ const MOB_SKINS: Record<string, ActorSkin> = {
   ranged: gridSkin(ACTOR_KEY.ranged),
   sweeper: gridSkin(ACTOR_KEY.sweeper),
   oniBrute: BRUTE_SKIN,
+  skulkinGrunt: gridSkin(ACTOR_KEY.melee, BONE),
+  skulkinGeneral: { ...BRUTE_SKIN, tint: BONE },
+  drillDummy: gridSkin(ACTOR_KEY.dummy),
+  allyKai: allySkin(NINJA_TINTS.allyKai),
+  allyJay: allySkin(NINJA_TINTS.allyJay),
+  allyZane: allySkin(NINJA_TINTS.allyZane),
+  allyCole: allySkin(NINJA_TINTS.allyCole),
 };
 
 const DUMMY_SKIN = gridSkin(ACTOR_KEY.dummy);

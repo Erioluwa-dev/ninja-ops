@@ -77,6 +77,7 @@ export class HudView implements RenderView {
   private readonly spinLabel: HudLabel;
   private readonly echoLabel: HudLabel;
   private panelHeight = 0;
+  private resultAction = "RESTART";
 
   constructor(scene: Phaser.Scene) {
     const { width, height } = scene.scale;
@@ -208,6 +209,11 @@ export class HudView implements RenderView {
       this.panelBody,
       this.pausedLabel,
     ];
+  }
+
+  /** Names what the attack button does on the result panel, e.g. CONTINUE in a story fight. */
+  setResultAction(label: string): void {
+    this.resultAction = label;
   }
 
   setPaused(paused: boolean): void {
@@ -348,6 +354,8 @@ export class HudView implements RenderView {
       runTicks: flow.runTicks,
       hitsTaken: player?.combat.hitsTaken ?? 0,
       canRestart: canRestart(state),
+      hasBoss: tuning.flow.boss.spawns.length > 0,
+      action: this.resultAction,
     });
     this.panelTitle.setText(resultTitle(won)).setColor(won ? VICTORY : DEFEAT);
     this.panelBody.setText(body);

@@ -1,3 +1,5 @@
+import type { Faction } from "./factions";
+
 /** One attack a mob can choose; the record key is the attack id. */
 export interface MobMoveData {
   /** RNG weight when the target is not spinning. */
@@ -15,6 +17,8 @@ export interface MobMoveData {
 
 export interface MobData {
   kitId: string;
+  /** Who the mob fights for; an allied ninja is a mob on the player's side. */
+  faction: Faction;
   /** How much of the shared attack-token pool one attacker of this type uses. */
   tokenWeight: number;
   /** Melee closes in ("chase"); ranged holds a firing lane ("reposition"). */
@@ -56,29 +60,117 @@ export interface MobData {
   moves?: Record<string, MobMoveData>;
 }
 
+// Shared by the oni grunt and the Skulkin and drill variants.
+const MELEE_BASE = {
+  tokenWeight: 1,
+  role: "melee",
+  sightRange: 400,
+  engageRange: 60,
+  holdDistance: 42,
+  minRange: 0,
+  maxRange: 16,
+  alignTolerance: 6,
+  circleSpeedScale: 0.6,
+  reactionDelay: 30,
+  reactionJitter: 30,
+  cooldown: 40,
+  tokenRetry: 20,
+  tokenRetryJitter: 40,
+  approachTimeout: 240,
+  bossBar: false,
+} as const;
+
+// The brute template; the Skulkin General shares its moves under a canon-villain tag.
+const BRUTE_BASE = {
+  tokenWeight: 2,
+  role: "melee",
+  sightRange: 400,
+  engageRange: 75,
+  holdDistance: 55,
+  minRange: 0,
+  maxRange: 22,
+  alignTolerance: 10,
+  circleSpeedScale: 0.5,
+  reactionDelay: 45,
+  reactionJitter: 0,
+  cooldown: 50,
+  tokenRetry: 25,
+  tokenRetryJitter: 40,
+  approachTimeout: 360,
+  bossBar: true,
+  moves: {
+    bruteSmash: {
+      weight: 4,
+      spinWeight: 1,
+      pickMinDist: 0,
+      pickMaxDist: 40,
+      minRange: 0,
+      maxRange: 22,
+      alignTolerance: 10,
+    },
+    bruteSlam: {
+      weight: 2,
+      spinWeight: 24,
+      pickMinDist: 0,
+      pickMaxDist: 75,
+      minRange: 0,
+      maxRange: 24,
+      alignTolerance: 24,
+    },
+    bruteCrush: {
+      weight: 3,
+      spinWeight: 1,
+      pickMinDist: 20,
+      pickMaxDist: 75,
+      minRange: 0,
+      maxRange: 22,
+      alignTolerance: 10,
+    },
+    bruteSweep: {
+      weight: 3,
+      spinWeight: 1,
+      pickMinDist: 10,
+      pickMaxDist: 75,
+      minRange: 6,
+      maxRange: 34,
+      alignTolerance: 22,
+    },
+  },
+} as const;
+
+// Allies are mobs on the player's side: they share the mob AI and attack tokens.
+const ALLY_BASE = {
+  kitId: "allyNinja",
+  faction: "ninja",
+  tokenWeight: 1,
+  role: "melee",
+  sightRange: 400,
+  engageRange: 70,
+  holdDistance: 36,
+  minRange: 0,
+  maxRange: 18,
+  alignTolerance: 8,
+  circleSpeedScale: 0.7,
+  reactionDelay: 20,
+  reactionJitter: 20,
+  cooldown: 45,
+  tokenRetry: 20,
+  tokenRetryJitter: 30,
+  approachTimeout: 240,
+  bossBar: false,
+  canonVillain: false,
+} as const;
+
 export const MOBS = {
   melee: {
+    ...MELEE_BASE,
     kitId: "oniGrunt",
-    tokenWeight: 1,
-    role: "melee",
-    sightRange: 400,
-    engageRange: 60,
-    holdDistance: 42,
-    minRange: 0,
-    maxRange: 16,
-    alignTolerance: 6,
-    circleSpeedScale: 0.6,
-    reactionDelay: 30,
-    reactionJitter: 30,
-    cooldown: 40,
-    tokenRetry: 20,
-    tokenRetryJitter: 40,
-    approachTimeout: 240,
-    bossBar: false,
+    faction: "oni",
     canonVillain: false,
   },
   ranged: {
     kitId: "oniArcher",
+    faction: "oni",
     tokenWeight: 1,
     role: "ranged",
     sightRange: 400,
@@ -99,6 +191,7 @@ export const MOBS = {
   },
   sweeper: {
     kitId: "oniSweeper",
+    faction: "oni",
     tokenWeight: 1,
     role: "melee",
     sightRange: 400,
@@ -118,63 +211,36 @@ export const MOBS = {
     canonVillain: false,
   },
   oniBrute: {
+    ...BRUTE_BASE,
     kitId: "oniBrute",
-    tokenWeight: 2,
-    role: "melee",
-    sightRange: 400,
-    engageRange: 75,
-    holdDistance: 55,
-    minRange: 0,
-    maxRange: 22,
-    alignTolerance: 10,
-    circleSpeedScale: 0.5,
-    reactionDelay: 45,
-    reactionJitter: 0,
-    cooldown: 50,
-    tokenRetry: 25,
-    tokenRetryJitter: 40,
-    approachTimeout: 360,
-    bossBar: true,
+    faction: "oni",
     canonVillain: false,
-    moves: {
-      bruteSmash: {
-        weight: 4,
-        spinWeight: 1,
-        pickMinDist: 0,
-        pickMaxDist: 40,
-        minRange: 0,
-        maxRange: 22,
-        alignTolerance: 10,
-      },
-      bruteSlam: {
-        weight: 2,
-        spinWeight: 24,
-        pickMinDist: 0,
-        pickMaxDist: 75,
-        minRange: 0,
-        maxRange: 24,
-        alignTolerance: 24,
-      },
-      bruteCrush: {
-        weight: 3,
-        spinWeight: 1,
-        pickMinDist: 20,
-        pickMaxDist: 75,
-        minRange: 0,
-        maxRange: 22,
-        alignTolerance: 10,
-      },
-      bruteSweep: {
-        weight: 3,
-        spinWeight: 1,
-        pickMinDist: 10,
-        pickMaxDist: 75,
-        minRange: 6,
-        maxRange: 34,
-        alignTolerance: 22,
-      },
-    },
   },
+  skulkinGrunt: {
+    ...MELEE_BASE,
+    kitId: "skulkinGrunt",
+    faction: "skulkin",
+    canonVillain: false,
+  },
+  // The Chapter 1 boss: an unnamed original general (PRD Q3), never killed by the player.
+  skulkinGeneral: {
+    ...BRUTE_BASE,
+    kitId: "skulkinGeneral",
+    faction: "skulkin",
+    canonVillain: true,
+  },
+  // A monastery drill target: it swings slowly so Wu's lesson has something to dodge and block.
+  drillDummy: {
+    ...MELEE_BASE,
+    kitId: "drillDummy",
+    faction: "skulkin",
+    reactionDelay: 60,
+    canonVillain: false,
+  },
+  allyKai: { ...ALLY_BASE },
+  allyJay: { ...ALLY_BASE },
+  allyZane: { ...ALLY_BASE },
+  allyCole: { ...ALLY_BASE },
 } as const satisfies Record<string, MobData>;
 
 export type MobTypeId = keyof typeof MOBS;

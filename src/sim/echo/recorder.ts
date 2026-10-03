@@ -23,6 +23,7 @@ export function createEchoState(
     hitCount: 0,
     unlocked: [...unlocked],
     ghostLimit: tuning.echo.ghostLimit,
+    twinStrikeFlicker: false,
     pending: [],
     rewindUntil: -1,
     wasDodging: false,

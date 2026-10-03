@@ -19,6 +19,7 @@ export interface GhostSpec {
   attackId: string | null;
   ttl: number;
   taunt: boolean;
+  flicker?: boolean;
 }
 
 /** Living ghosts, oldest first; a dissolving one no longer counts toward the limit. */
@@ -59,6 +60,7 @@ export function spawnGhost(state: SimState, spec: GhostSpec): Entity {
     attackId: spec.attackId,
     ttl: spec.ttl,
     taunt: spec.taunt,
+    flicker: spec.flicker ?? false,
   };
   state.entities.push(ghost);
   return ghost;

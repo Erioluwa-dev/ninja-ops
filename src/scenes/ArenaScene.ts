@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { ENCOUNTERS, isEncounterId } from "../data/encounters";
 import { WAVES } from "../data/mobs";
 import type { TuningPanel } from "../dev/tuningPanel";
 import { PhaserInput } from "../input";
@@ -7,6 +8,7 @@ import { preloadAssets } from "../render/assets";
 import {
   type ActionFrame,
   canRestart,
+  createEncounterSim,
   createFixedStepper,
   createSim,
   cycleElement,
@@ -18,6 +20,7 @@ import {
   step,
 } from "../sim";
 
+import { encounterContext } from "../story/perks";
 import { type ArenaLaunch, isArenaLaunch, type StoryResume } from "./launch";
 
 const SEED = 0x4e494e4a;
@@ -77,13 +80,13 @@ export class ArenaScene extends Phaser.Scene {
 
   create(): void {
     // A story fight skips the intro panel: the story already set the scene.
-    this.state = createSim({
-      seed: SEED,
-      mode: this.launch ? "run" : "intro",
-    });
+    this.state = this.launch
+      ? this.createStoryFight(this.launch)
+      : createSim({ seed: SEED, mode: "intro" });
     this.runIndex = 0;
     this.controls = new PhaserInput(this);
     this.view = new SimRenderer(this);
+    if (this.launch) this.view.setResultAction("CONTINUE");
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.view?.destroy();
       this.view = null;
@@ -143,14 +146,25 @@ export class ArenaScene extends Phaser.Scene {
     this.view.render(this.state, this.game.loop.actualFps);
   }
 
-  // Encounters are not data-driven yet, so any story fight plays the default
-  // run; the outcome is what the story reads.
+  private createStoryFight(launch: ArenaLaunch): SimState {
+    if (!isEncounterId(launch.encounter)) {
+      throw new Error(`Unknown encounter: ${launch.encounter}`);
+    }
+    const data = ENCOUNTERS[launch.encounter];
+    return createEncounterSim({
+      encounter: launch.encounter,
+      seed: SEED,
+      context: encounterContext(launch.runner.story, data.guardAlly),
+    });
+  }
+
   private returnToStory(): void {
     if (!this.launch) return;
     const resume: StoryResume = {
       registry: this.launch.registry,
       runner: this.launch.runner,
       outcome: this.state.arenaFlow.phase === "victory" ? "won" : "lost",
+      resonance: this.state.echo.resonance,
     };
     this.scene.start("StoryScene", resume);
   }

@@ -150,3 +150,14 @@ Story work follows `docs/AGENT_STORY_RULES.md` (loaded via `CLAUDE.md`); content
 - No-kill invariant: `canonVillain` on `MobData` and `Entity`; `applyDamage` floors a canon villain at 1 hp for every damage source; `applyTeamFinisher` (`src/sim/finisher.ts`) is the only way past it. `src/sim/noKill.test.ts` covers melee, counter, ghost, spin, element hazard and projectile, and was checked to fail with the floor removed.
 - `StoryScene` plays a registry chosen by `?story=<key>` (`&new` ignores the save); `?story=demo` is a throwaway two-choice chapter for the persistence check. `ArenaScene` accepts an `ArenaLaunch` and returns a `StoryResume`; encounter ids are not mapped to waves until Phase 12.
 - Unverified in a browser from this environment: the dialogue box, choice list and scene hand-off. Manual check: `bun dev`, open `/?story=demo&new`, pick through, reload `/?story=demo`.
+
+### Phase 12 notes
+
+- Chapter 1 is `src/data/story/ch1.ts` (`ch1_s1` to `ch1_s9`), played with `/?story=ch1` (the default for `?story`). Lines are tagged `// BIBLE` or `// DRAFT(writer)`; a test enforces the tag on every line.
+- Encounters live in `src/data/encounters.ts` in the sandbox's wave format and are built by `createEncounterSim` (`src/sim/encounter.ts`), which takes an `EncounterContext` so the sim never imports story types. `src/story/perks.ts` builds that context from the story state.
+- New factions and mobs: `skulkin` (hostile to ninja), `skulkinGrunt`, `skulkinGeneral` (canon villain), `drillDummy`, and `allyKai/Jay/Zane/Cole` (mobs on the ninja side). Allies do not hold a fight open.
+- A canon villain at its hp floor staggers, then the team finishes it after `flow.finisherDelay` frames (`stepFinishers` in `src/sim/flow.ts`). A fight with no boss ends with its last wave.
+- Blade Stage 1 sets `blade_stage = 1`; corruption tiers are config in `src/data/blade.ts`. Chapter 1 only lowers corruption, and `ch1_s8` "stay" clamps at 0 from a fresh game.
+- Trust perks: Kai (trust 3) flickers Twin Strike's ghost; Jay (trust 3) shortens the Rewind window. Cole and Zane wait for their moves. The tier at trust 6 is recorded and does nothing yet.
+- `ch1_s5` "cooler" is implemented as -1 trust to each ninja not picked, floored at 0. `ch1_s8` chase gives +2 trust to the weapon-guard ninja, who is the one who sees the player leave.
+- Known simplifications: every encounter shares the sandbox arena (the dungeon is that room with trap tiles), and Skulkin reuse existing sprites washed bone-white because the repo has no skeleton sheet.

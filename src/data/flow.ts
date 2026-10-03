@@ -10,6 +10,8 @@ export interface FlowData {
   breather: number;
   /** Frames after a result appears before restart is accepted, so a mashed attack can't skip it. */
   resultLockFrames: number;
+  /** Frames a canon villain at its hp floor stands staggered before the team's finishing blow. */
+  finisherDelay: number;
 }
 
 export const FLOW = {
@@ -33,4 +35,5 @@ export const FLOW = {
   bannerFrames: 90,
   breather: 150,
   resultLockFrames: 60,
+  finisherDelay: 75,
 } as const satisfies FlowData;

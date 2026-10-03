@@ -189,7 +189,7 @@ export function advance(
     }
     const chapter = runner.story.chapter;
     return {
-      runner: { ...runner, stack: [], wait: { kind: "done" } },
+      runner: { ...runner, scene: null, stack: [], wait: { kind: "done" } },
       events: [{ type: "chapterEnd", chapter }],
     };
   }
@@ -255,6 +255,7 @@ export function runnerAtBoundary(story: StoryState): RunnerState {
     story,
     scene: story.scene,
     stack: [],
-    wait: story.scene === null ? { kind: "done" } : { kind: "boundary" },
+    // With no next scene, advancing reports the chapter's end, as a live run does.
+    wait: { kind: "boundary" },
   };
 }

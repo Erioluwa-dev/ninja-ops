@@ -333,9 +333,17 @@ describe("factions", () => {
     expect(isHostile("oni", "ninja")).toBe(true);
   });
 
+  it("makes ninja and skulkin hostile both ways, and skulkin and oni strangers", () => {
+    expect(isHostile("ninja", "skulkin")).toBe(true);
+    expect(isHostile("skulkin", "ninja")).toBe(true);
+    expect(isHostile("skulkin", "oni")).toBe(false);
+    expect(isHostile("oni", "skulkin")).toBe(false);
+  });
+
   it("is never hostile to itself", () => {
     expect(isHostile("ninja", "ninja")).toBe(false);
     expect(isHostile("oni", "oni")).toBe(false);
+    expect(isHostile("skulkin", "skulkin")).toBe(false);
   });
 
   it("makes neutral hostile to nobody and nobody hostile to neutral", () => {

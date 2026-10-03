@@ -158,6 +158,8 @@ export interface GhostState {
   ttl: number;
   /** Enemies prefer a taunting ghost as their target (Decoy Veil). */
   taunt: boolean;
+  /** Drawn with a fire flicker (Kai's trust perk on Twin Strike). */
+  flicker: boolean;
 }
 
 /** One recorded tick of the player: the input and where the feet stood before it ran. */
@@ -185,6 +187,8 @@ export interface EchoState {
   hitCount: number;
   unlocked: EchoMoveId[];
   ghostLimit: number;
+  /** Twin Strike's ghost flickers with fire: a cosmetic trust perk. */
+  twinStrikeFlicker: boolean;
   pending: EchoPending[];
   /** Last tick on which a second dodge press snaps to the ghost; -1 when closed. */
   rewindUntil: number;
@@ -253,6 +257,8 @@ export interface ArenaFlow {
   phaseTicks: number;
   /** Ticks from the start of the run to its end. */
   runTicks: number;
+  /** Canon villains at their hp floor: entity id to frames until the team finishes them. */
+  finishers: Record<number, number>;
 }
 
 export interface TokenHold {

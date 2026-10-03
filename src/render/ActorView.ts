@@ -5,7 +5,7 @@ import { actorFrame, actorSkin } from "./actorFrames";
 import { ACTOR_KEY } from "./assets";
 import { actorDepth, DEPTH } from "./depth";
 import { BAR_BACK, TELEGRAPH } from "./palette";
-import { isBoss } from "./util";
+import { blinkOn, isBoss } from "./util";
 import type { RenderFrame, RenderView } from "./view";
 
 const DIZZY = 0xffe060;
@@ -16,6 +16,8 @@ const HP_BAR = 0x50e070;
 // An Echo ghost is a faint, cool-tinted afterimage of the player.
 const GHOST_TINT = 0x7fe0ff;
 const GHOST_ALPHA = 0.45;
+// Kai's trust perk lights Twin Strike's ghost with fire.
+const GHOST_FLICKER = 0xff8a30;
 const HP_BAR_W = 16;
 const OUTLINE_OFFSETS = [
   [-1, 0],
@@ -207,7 +209,10 @@ export class ActorView implements RenderView {
     if (e.kind === "dummy" && e.faction === "oni") {
       sprite.body.setTint(DUMMY_HOSTILE);
     } else if (e.kind === "ghost") {
-      sprite.body.setTint(GHOST_TINT);
+      const burning = e.ghost?.flicker === true && blinkOn(state.tick, 4);
+      sprite.body.setTint(burning ? GHOST_FLICKER : GHOST_TINT);
+    } else if (skin.tint !== null) {
+      sprite.body.setTint(skin.tint);
     } else {
       sprite.body.clearTint();
     }

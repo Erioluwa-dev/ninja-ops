@@ -13,6 +13,8 @@ export interface StoryResume {
   registry: string;
   runner: RunnerState;
   outcome: CombatOutcome;
+  /** Resonance the player ended the fight with, carried back into the story. */
+  resonance: number;
 }
 
 export function isArenaLaunch(value: unknown): value is ArenaLaunch {
@@ -30,6 +32,7 @@ export function isStoryResume(value: unknown): value is StoryResume {
     typeof value === "object" &&
     value !== null &&
     "outcome" in value &&
+    "resonance" in value &&
     "runner" in value &&
     "registry" in value
   );

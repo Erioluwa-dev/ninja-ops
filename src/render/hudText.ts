@@ -64,6 +64,10 @@ export interface RunResult {
   runTicks: number;
   hitsTaken: number;
   canRestart: boolean;
+  /** False for a story fight that ends with its last wave; defaults to true. */
+  hasBoss?: boolean;
+  /** What the attack button does from the result panel; defaults to RESTART. */
+  action?: string;
 }
 
 export function resultTitle(won: boolean): string {
@@ -71,16 +75,15 @@ export function resultTitle(won: boolean): string {
 }
 
 export function resultBody(r: RunResult): string {
-  const cleared = r.won
-    ? `${r.wavesCleared}/${r.totalWaves} + BOSS`
-    : `${r.wavesCleared}/${r.totalWaves}`;
+  const boss = r.won && (r.hasBoss ?? true) ? " + BOSS" : "";
+  const cleared = `${r.wavesCleared}/${r.totalWaves}${boss}`;
   const seconds = (r.runTicks / SIM_HZ).toFixed(1);
   return [
     `WAVES CLEARED  ${cleared}`,
     `TIME  ${seconds}S`,
     `HITS TAKEN  ${r.hitsTaken}`,
     "",
-    r.canRestart ? "ATTACK  RESTART" : "",
+    r.canRestart ? `ATTACK  ${r.action ?? "RESTART"}` : "",
   ].join("\n");
 }
 
