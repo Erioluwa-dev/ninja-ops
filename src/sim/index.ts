@@ -12,6 +12,7 @@ export { type Box, feetBox, moveAndCollide } from "./collision";
 export { depthOrder } from "./depth";
 export { cycleElement, setElement } from "./elements";
 export { createEntity } from "./entity";
+export { applyTeamFinisher } from "./finisher";
 export { canRestart, startRun } from "./flow";
 export { hazardBox } from "./hazards";
 export { isAirborne } from "./jump";

@@ -72,6 +72,7 @@ export function createEntity(
     state: "idle",
     combat: createCombatState(tuning),
     aiTimer: tuning.combat.dummy.interval,
+    canonVillain: mobType !== null && getMob(tuning, mobType).canonVillain,
     ghost: null,
   };
 }

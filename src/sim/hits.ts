@@ -71,7 +71,10 @@ function applyDamage(contact: Contact, state: SimState): void {
       ? counterDamage * tuning.echo.ghostDamageScale
       : counterDamage;
 
-  target.hp = Math.max(kit.hpFloor, target.hp - baseDamage * (armor ?? 1));
+  // The floor covers every source, so a new damage type cannot kill a canon
+  // villain by accident; only `applyTeamFinisher` goes around it.
+  const floor = target.canonVillain ? Math.max(kit.hpFloor, 1) : kit.hpFloor;
+  target.hp = Math.max(floor, target.hp - baseDamage * (armor ?? 1));
   target.combat.hpRegenDelay = kit.regenDelay;
   target.combat.hitsTaken += 1;
   // Super armor takes the damage but shrugs off the knockback and the flinch.

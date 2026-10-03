@@ -45,6 +45,11 @@ export interface MobData {
   /** Drawn as a boss bar on the HUD instead of over the head. */
   bossBar: boolean;
   /**
+   * A canon villain can never be reduced below 1 hp by the player, a ghost or
+   * the blade (PRD N-8); only a scripted team finisher can end it.
+   */
+  canonVillain: boolean;
+  /**
    * Attacks to pick from by range and target state, keyed by attack id. Without
    * it the mob always uses its kit's first attack.
    */
@@ -70,6 +75,7 @@ export const MOBS = {
     tokenRetryJitter: 40,
     approachTimeout: 240,
     bossBar: false,
+    canonVillain: false,
   },
   ranged: {
     kitId: "oniArcher",
@@ -89,6 +95,7 @@ export const MOBS = {
     tokenRetryJitter: 50,
     approachTimeout: 300,
     bossBar: false,
+    canonVillain: false,
   },
   sweeper: {
     kitId: "oniSweeper",
@@ -108,6 +115,7 @@ export const MOBS = {
     tokenRetryJitter: 40,
     approachTimeout: 260,
     bossBar: false,
+    canonVillain: false,
   },
   oniBrute: {
     kitId: "oniBrute",
@@ -127,6 +135,7 @@ export const MOBS = {
     tokenRetryJitter: 40,
     approachTimeout: 360,
     bossBar: true,
+    canonVillain: false,
     moves: {
       bruteSmash: {
         weight: 4,

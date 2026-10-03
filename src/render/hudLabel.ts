@@ -68,6 +68,8 @@ export interface HudLabelOptions {
  */
 export class HudLabel {
   private readonly rim: Phaser.GameObjects.BitmapText[] = [];
+  /** Where each layer sits relative to the label's anchor, rim first, face last. */
+  private readonly offsets: (readonly [number, number])[] = [];
   private readonly face: Phaser.GameObjects.BitmapText;
   private current = "";
 
@@ -87,8 +89,10 @@ export class HudLabel {
         thickness > 1 ? [...OUTLINE_STEPS, ...OUTLINE_CORNERS] : OUTLINE_STEPS;
       for (const [dx, dy] of steps) {
         this.rim.push(make(dx * thickness, dy * thickness).setTint(0x000000));
+        this.offsets.push([dx * thickness, dy * thickness]);
       }
     }
+    this.offsets.push([0, 0]);
     this.face = make(0, 0);
     this.setColor(options.color === undefined ? 0xffffff : options.color);
   }
@@ -107,6 +111,18 @@ export class HudLabel {
     } else {
       this.face.setTint(color).setTintMode(Phaser.TintModes.FILL);
     }
+    return this;
+  }
+
+  /** Moves the label; an omitted axis keeps its place. */
+  setPosition(x?: number, y?: number): this {
+    this.layers().forEach((layer, i) => {
+      const [dx, dy] = this.offsets[i] ?? [0, 0];
+      layer.setPosition(
+        x === undefined ? layer.x : x + dx,
+        y === undefined ? layer.y : y + dy,
+      );
+    });
     return this;
   }
 

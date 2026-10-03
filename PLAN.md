@@ -141,3 +141,12 @@ Story work follows `docs/AGENT_STORY_RULES.md` (loaded via `CLAUDE.md`); content
 - Afterstep's ghost keeps shadowing the player's movement for its lifetime; that trailing path is what Rewind Step snaps back to. Twin Strike's and Decoy Veil's ghosts do not follow.
 - A newer ghost replaces the oldest at the limit with no pip loss; only an enemy hit costs a pip.
 - Echo moves are gated by `SimState.echo.unlocked` (all four in the sandbox); story unlocks drive it in Phase 12.
+
+### Phase 11 notes
+
+- `src/story` is pure TypeScript with no Phaser: `state.ts` (the store, PRD §6 keys), `effects.ts` (pure reducer), `conditions.ts`, `schema.ts` (chapters, scenes, steps, registry validation), `runner.ts` (`startScene`, `advance`, `choose`, `resolveCombat`, emitting UI events), `save.ts` (versioned JSON, narrows `unknown`).
+- Saves land on scene boundaries: the runner sets `story.scene` to the next scene when a scene ends, so a loaded save and a live run take the same path. Mid-scene saves are not supported.
+- A lost combat replays the encounter, so a defeat never skips a fixed point that follows it.
+- No-kill invariant: `canonVillain` on `MobData` and `Entity`; `applyDamage` floors a canon villain at 1 hp for every damage source; `applyTeamFinisher` (`src/sim/finisher.ts`) is the only way past it. `src/sim/noKill.test.ts` covers melee, counter, ghost, spin, element hazard and projectile, and was checked to fail with the floor removed.
+- `StoryScene` plays a registry chosen by `?story=<key>` (`&new` ignores the save); `?story=demo` is a throwaway two-choice chapter for the persistence check. `ArenaScene` accepts an `ArenaLaunch` and returns a `StoryResume`; encounter ids are not mapped to waves until Phase 12.
+- Unverified in a browser from this environment: the dialogue box, choice list and scene hand-off. Manual check: `bun dev`, open `/?story=demo&new`, pick through, reload `/?story=demo`.

@@ -130,6 +130,8 @@ export interface Entity {
   combat: CombatState;
   /** Frames until the scripted dummy starts its next swing. */
   aiTimer: number;
+  /** Damage leaves it at 1 hp or more; see `applyTeamFinisher` for the only way down. */
+  canonVillain: boolean;
   /** Replay driver of an Echo ghost; null for everything else. */
   ghost: GhostState | null;
 }
