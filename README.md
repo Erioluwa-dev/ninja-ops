@@ -2,7 +2,7 @@
 
 A top-down GBA-style action game built with Phaser 4 and TypeScript. Fight waves of Oni and a tough Oni Brute in a single arena, using attacks, dodges, blocks, jumps and a spinning signature move.
 
-**Play in the browser:** https://erioluwa-dev.github.io/ninja-ops/ (live once the repo is public and GitHub Pages is enabled)
+**Play in the browser:** https://erioluwa-dev.github.io/ninja-ops/ (opens the monastery hub; `?hub=city`, `?story` and `?sandbox` for the rest — live once the repo is public and GitHub Pages is enabled)
 
 ## Controls
 

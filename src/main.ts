@@ -8,6 +8,7 @@ const HEIGHT = 160;
 const params = new URLSearchParams(window.location.search);
 const STORY_MODE = params.has("story");
 const HUB_MODE = params.has("hub");
+const SANDBOX_MODE = params.has("sandbox");
 
 const parent = document.getElementById("game");
 if (!parent) throw new Error("Missing #game mount element");
@@ -23,13 +24,13 @@ const game = new Phaser.Game({
   roundPixels: true,
   input: { gamepad: true },
   scale: { mode: Phaser.Scale.NONE },
-  // The first scene starts; `?hub` opens a walkable hub, `?story` the
-  // story, the sandbox is the default.
-  scene: HUB_MODE
-    ? [HubScene, StoryScene, ArenaScene]
-    : STORY_MODE
-      ? [StoryScene, ArenaScene]
-      : [ArenaScene, StoryScene],
+  // The first scene starts; the hub is the landing page, `?story` opens
+  // the story, `?sandbox` the combat sandbox.
+  scene: STORY_MODE
+    ? [StoryScene, ArenaScene]
+    : SANDBOX_MODE
+      ? [ArenaScene, StoryScene]
+      : [HubScene, StoryScene, ArenaScene],
 });
 
 // Phaser's FIT mode scales fractionally, which blurs pixel art; size the canvas by whole multiples instead.
