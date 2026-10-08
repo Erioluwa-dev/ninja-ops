@@ -116,7 +116,7 @@ export const HUBS: Record<string, HubDef> = {
         w: 4,
         h: 1,
         to: "world",
-        spawn: { col: 13, row: 2 },
+        spawn: { col: 13, row: 5 },
         label: "ROAD",
       },
     ],
@@ -156,7 +156,7 @@ export const HUBS: Record<string, HubDef> = {
     key: "world",
     title: "Ninjago",
     layout: WORLD_MAP,
-    spawn: { col: 13, row: 2 },
+    spawn: { col: 13, row: 5 },
     npcs: [],
     townsfolk: {
       count: 5,
@@ -170,7 +170,7 @@ export const HUBS: Record<string, HubDef> = {
     doors: [
       {
         col: 13,
-        row: 0,
+        row: 4,
         w: 2,
         h: 1,
         to: "monastery",
