@@ -1,17 +1,27 @@
 import Phaser from "phaser";
+import {
+  blip,
+  choiceMoveSfx,
+  confirmSfx,
+  ensureAudio,
+  humSfx,
+  sceneWhoosh,
+  unlockSfx,
+} from "../audio/sfx";
 import { DEFAULT_STORY, STORY_REGISTRIES } from "../data/story";
 import { PhaserInput } from "../input";
 import { preloadAssets } from "../render/assets";
 import { ChoiceView } from "../render/ChoiceView";
 import { DialogueView } from "../render/DialogueView";
-import { DEPTH } from "../render/depth";
 import { HudLabel, registerHudFont } from "../render/hudLabel";
+import { StoryStageView } from "../render/StoryStageView";
 import {
   browserStore,
   type KeyValueStore,
   loadStory,
   saveStory,
 } from "../render/storyStorage";
+import { TransitionView } from "../render/TransitionView";
 import { applyEffect } from "../story/effects";
 import {
   advance,
@@ -24,23 +34,10 @@ import {
   type UiEvent,
   type Update,
 } from "../story/runner";
-import type { ChapterRegistry } from "../story/schema";
+import { type ChapterRegistry, findScene } from "../story/schema";
 import { createStoryState } from "../story/state";
 import { type ArenaLaunch, isStoryResume, type StoryResume } from "./launch";
 
-const WIDTH = 240;
-const HEIGHT = 160;
-const DEFAULT_BACKDROP = 0x1c2a3a;
-// Keys the data uses for `SceneDef.backdrop`; art replaces these flat washes later.
-const BACKDROPS: Record<string, number> = {
-  test: 0x1c2a3a,
-  monastery: 0x4a3a2a,
-  village: 0x3a4a2a,
-  caves: 0x2a2a3a,
-  chamber: 0x1a1a2a,
-  site: 0x4a2a2a,
-  night: 0x10142a,
-};
 const NAV_THRESHOLD = 0.5;
 
 type Mode = "idle" | "dialogue" | "choice" | "notice" | "combat" | "done";
@@ -61,10 +58,14 @@ export class StoryScene extends Phaser.Scene {
   private controls: PhaserInput | null = null;
   private dialogue: DialogueView | null = null;
   private choices: ChoiceView | null = null;
-  private backdrop: Phaser.GameObjects.Rectangle | null = null;
+  private stageView: StoryStageView | null = null;
+  private transition: TransitionView | null = null;
   private titleLabel: HudLabel | null = null;
   private attackWasHeld = false;
   private navWas = 0;
+  private lastSpeaker: import("../story/schema").SpeakerId | null = null;
+  private blipTick = 0;
+  private humTick = 0;
 
   constructor() {
     super("StoryScene");
@@ -84,23 +85,25 @@ export class StoryScene extends Phaser.Scene {
     this.queue = [];
     this.mode = "idle";
     this.controls = new PhaserInput(this);
-    this.backdrop = this.add
-      .rectangle(0, 0, WIDTH, HEIGHT, DEFAULT_BACKDROP)
-      .setOrigin(0, 0)
-      .setDepth(DEPTH.floor);
+    this.stageView = new StoryStageView(this);
+    this.transition = new TransitionView(this);
     this.titleLabel = new HudLabel(this, {
       x: 4,
       y: 4,
-      depth: DEPTH.hudText,
+      depth: 1010,
     });
     this.dialogue = new DialogueView(this);
     this.choices = new ChoiceView(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.dialogue?.destroy();
       this.choices?.destroy();
+      this.stageView?.destroy();
+      this.transition?.destroy();
       this.titleLabel?.destroy();
       this.dialogue = null;
       this.choices = null;
+      this.stageView = null;
+      this.transition = null;
       this.titleLabel = null;
     });
 
@@ -139,20 +142,45 @@ export class StoryScene extends Phaser.Scene {
     const navPressed = nav !== 0 && nav !== this.navWas ? nav : 0;
     this.navWas = nav;
 
+    this.stageView?.update();
     this.dialogue?.update();
+    if (this.dialogue?.isVisible && this.mode === "dialogue") {
+      this.blipTick += 1;
+      if (this.blipTick % 4 === 0) blip(this.lastSpeaker);
+    } else {
+      this.blipTick = 0;
+    }
+    const corruption = this.runner.story.corruption;
+    if (corruption >= 25) {
+      this.humTick += 1;
+      if (this.humTick % 240 === 0) humSfx(corruption);
+    } else {
+      this.humTick = 0;
+    }
     if (this.mode === "dialogue" && confirm && this.dialogue?.confirm()) {
+      ensureAudio();
+      confirmSfx();
+      this.stageView?.setEmote(null, null);
       this.dialogue.hide();
       this.mode = "idle";
       this.apply(advance(this.chapters, this.runner));
       this.proceed();
     } else if (this.mode === "notice" && confirm && this.dialogue?.confirm()) {
+      ensureAudio();
+      confirmSfx();
       this.dialogue.hide();
       this.mode = "idle";
       this.proceed();
     } else if (this.mode === "choice" && this.choices) {
-      if (navPressed === -1 || navPressed === 1) this.choices.move(navPressed);
+      if (navPressed === -1 || navPressed === 1) {
+        this.choices.move(navPressed);
+        choiceMoveSfx();
+      }
       const picked = confirm ? this.choices.confirm() : null;
       if (picked !== null) {
+        ensureAudio();
+        confirmSfx();
+        this.stageView?.setEmote(null, null);
         this.choices.hide();
         this.mode = "idle";
         this.apply(choose(this.chapters, this.runner, picked));
@@ -216,20 +244,39 @@ export class StoryScene extends Phaser.Scene {
     this.mode = "notice";
   }
 
+  private ensureStage(): void {
+    const sceneId = this.runner.scene;
+    if (!sceneId) return;
+    const def = findScene(this.chapters, sceneId);
+    if (def) this.stageView?.showStage(def.backdrop);
+  }
+
+  private refreshVignette(): void {
+    const corruption = this.runner.story.corruption;
+    if (corruption >= 25) this.transition?.setVignette(corruption);
+    else this.transition?.clearVignette();
+  }
+
   private show(event: UiEvent): void {
     switch (event.type) {
       case "sceneStart":
-        this.backdrop?.setFillStyle(
-          BACKDROPS[event.backdrop] ?? DEFAULT_BACKDROP,
-        );
+        this.stageView?.showStage(event.backdrop);
         this.titleLabel?.setText(event.title.toUpperCase());
+        this.refreshVignette();
+        sceneWhoosh();
+        void this.transition?.fadeIn(320);
         return;
       case "dialogue":
+        this.ensureStage();
+        this.lastSpeaker = event.speaker;
+        this.stageView?.setSpeaker(event.speaker);
         this.dialogue?.show(event.speaker, event.text);
         this.mode = "dialogue";
         return;
       case "choice":
+        this.ensureStage();
         this.choices?.show(event.prompt, event.options);
+        if (this.lastSpeaker) this.stageView?.setEmote(this.lastSpeaker, "?");
         this.mode = "choice";
         return;
       case "combat":
@@ -241,6 +288,8 @@ export class StoryScene extends Phaser.Scene {
         } satisfies ArenaLaunch);
         return;
       case "unlock":
+        unlockSfx();
+        this.transition?.flash(0xffffff, 140);
         this.notice(`LEARNED ${event.label}`);
         return;
       case "sceneEnd": {
@@ -248,6 +297,7 @@ export class StoryScene extends Phaser.Scene {
           ? saveStory(this.store, this.runner.story)
           : null;
         if (result && !result.ok) console.error(result.error);
+        this.refreshVignette();
         this.notice(result?.ok ? "PROGRESS SAVED" : "COULD NOT SAVE");
         return;
       }
