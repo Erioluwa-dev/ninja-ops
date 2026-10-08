@@ -8,6 +8,10 @@ describe("hubs", () => {
     expect(validateHubs(HUBS)).toEqual([]);
   });
 
+  it("lands on the walkable world map", () => {
+    expect(DEFAULT_HUB).toBe("world");
+  });
+
   it("resolves the default hub for unknown keys", () => {
     expect(hubFor("nope").key).toBe(DEFAULT_HUB);
     expect(() => hubFor("nope")).not.toThrow();

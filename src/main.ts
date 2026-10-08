@@ -24,7 +24,7 @@ const game = new Phaser.Game({
   roundPixels: true,
   input: { gamepad: true },
   scale: { mode: Phaser.Scale.NONE },
-  // The first scene starts; the hub is the landing page, `?story` opens
+  // The first scene starts; the world map hub is the landing page, `?story` opens
   // the story, `?sandbox` the combat sandbox.
   scene: STORY_MODE
     ? [StoryScene, ArenaScene]

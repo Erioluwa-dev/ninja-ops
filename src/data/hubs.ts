@@ -208,7 +208,8 @@ export const HUBS: Record<string, HubDef> = {
   },
 } as const;
 
-export const DEFAULT_HUB = "monastery";
+// The world map is the landing page; the monastery and city open off it.
+export const DEFAULT_HUB = "world";
 
 export function hubFor(key: string): HubDef {
   const found = HUBS[key] ?? HUBS[DEFAULT_HUB];
