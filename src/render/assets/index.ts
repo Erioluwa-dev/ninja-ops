@@ -2,18 +2,25 @@ import type Phaser from "phaser";
 import { ACTOR_ASSETS } from "./actorAssets";
 import { FX_ASSETS } from "./fxAssets";
 import { HUD_ASSETS } from "./hudAssets";
-import { TILE_ASSETS } from "./tileAssets";
+import { HUB_TILE_ASSETS, TILE_ASSETS } from "./tileAssets";
 import type { AssetEntry } from "./types";
 
 export { ACTOR_ASSETS, ACTOR_KEY } from "./actorAssets";
 export { FX_ASSETS, FX_KEY } from "./fxAssets";
 export { HUD_ASSETS, HUD_KEY } from "./hudAssets";
-export { TILE_ASSETS, TILE_KEY, TILE_SHEET_COLS } from "./tileAssets";
+export {
+  HUB_TILE_ASSETS,
+  hubSheetKey,
+  TILE_ASSETS,
+  TILE_KEY,
+  TILE_SHEET_COLS,
+} from "./tileAssets";
 export type { AssetEntry, ImageAsset, SpritesheetAsset } from "./types";
 
 const MANIFESTS: readonly (readonly AssetEntry[])[] = [
   ACTOR_ASSETS,
   TILE_ASSETS,
+  HUB_TILE_ASSETS,
   FX_ASSETS,
   HUD_ASSETS,
 ];

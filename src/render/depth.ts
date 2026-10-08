@@ -10,18 +10,18 @@ export const DEPTH = {
   /** Actors and the wall tiles that can stand in front of them; see actorDepth. */
   actors: 200,
   /** Spin, dizzy, projectiles: above every body. */
-  overheadFx: 500,
-  hpBars: 600,
-  debug: 900,
-  hud: 1000,
-  hudText: 1010,
+  overheadFx: 1300,
+  hpBars: 1400,
+  debug: 1500,
+  hud: 1600,
+  hudText: 1610,
   /** The dim backdrop behind the intro and result panels. */
-  overlay: 1500,
-  panels: 2000,
+  overlay: 2500,
+  panels: 3000,
 } as const;
 
-/** Depth units reserved inside the actor band for y-sorting (arena is 160 px tall). */
-export const ACTOR_DEPTH_SPAN = 256;
+/** Depth units reserved inside the actor band for y-sorting; covers the tallest hub map (576 px) with room to grow. */
+export const ACTOR_DEPTH_SPAN = 1024;
 
 /**
  * Depth of anything standing on the ground at feet-center `y`; larger y is

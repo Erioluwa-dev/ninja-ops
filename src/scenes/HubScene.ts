@@ -1,24 +1,26 @@
 import Phaser from "phaser";
 import { blip, confirmSfx, ensureAudio } from "../audio/sfx";
+import { composeMap } from "../data/hubCompose";
 import {
   DEFAULT_HUB,
   type HubDef,
+  type HubDoor,
   type HubNpcDef,
   hubFor,
   type NpcSkin,
 } from "../data/hubs";
 import { createTuning, type Tuning } from "../data/tuning";
 import { PhaserInput } from "../input";
-import { ArenaView } from "../render/ArenaView";
 import { actorFrame, actorSkin } from "../render/actorFrames";
 import { preloadAssets } from "../render/assets";
 import { DialogueView } from "../render/DialogueView";
 import { actorDepth, DEPTH } from "../render/depth";
+import { HubMapView } from "../render/HubMapView";
 import { HudLabel, registerHudFont } from "../render/hudLabel";
 import { buildNinjaTextures } from "../render/ninjaTextures";
 import { browserStore, loadStory } from "../render/storyStorage";
 import { TransitionView } from "../render/TransitionView";
-import { type Arena, isSolidTile, type SimState } from "../sim";
+import { type Arena, isSolidTile } from "../sim";
 import { createEntity } from "../sim/entity";
 import type { Entity } from "../sim/types";
 
@@ -69,7 +71,7 @@ export class HubScene extends Phaser.Scene {
   private player: Entity | null = null;
   private playerImg: Phaser.GameObjects.Image | null = null;
   private npcs: NpcActor[] = [];
-  private arenaView: ArenaView | null = null;
+  private mapView: HubMapView | null = null;
   private dialogue: DialogueView | null = null;
   private transition: TransitionView | null = null;
   private titleLabel: HudLabel | null = null;
@@ -83,6 +85,8 @@ export class HubScene extends Phaser.Scene {
   private blipTick = 0;
   private lastSpeaker: string | null = null;
   private attackWasHeld = false;
+  private leaving = false;
+  private spawnAt: { col: number; row: number } = { col: 0, row: 0 };
 
   constructor() {
     super("HubScene");
@@ -96,6 +100,16 @@ export class HubScene extends Phaser.Scene {
     }
     key ??= new URLSearchParams(window.location.search).get("hub");
     this.hub = hubFor(key ?? DEFAULT_HUB);
+    this.spawnAt = this.hub.spawn;
+    if (typeof data === "object" && data !== null && "spawn" in data) {
+      const sp = (data as { spawn?: unknown }).spawn;
+      if (typeof sp === "object" && sp !== null) {
+        const { col, row } = sp as { col?: unknown; row?: unknown };
+        if (typeof col === "number" && typeof row === "number") {
+          this.spawnAt = { col, row };
+        }
+      }
+    }
   }
 
   preload(): void {
@@ -107,12 +121,7 @@ export class HubScene extends Phaser.Scene {
     registerHudFont(this);
     this.tuning = createTuning();
     this.buildArena();
-    this.arenaView = new ArenaView(this);
-    this.arenaView.draw({
-      state: { arena: this.arena } as unknown as SimState,
-      ordered: [],
-      player: undefined,
-    });
+    this.mapView = new HubMapView(this, this.composed());
     this.spawnActors();
     this.buildMarkers();
     this.controls = new PhaserInput(this);
@@ -141,18 +150,19 @@ export class HubScene extends Phaser.Scene {
     this.emoteLabel.setVisible(false);
     this.boardText = this.readBoard();
     this.mode = "roam";
+    this.leaving = false;
     this.tick = 0;
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.arena.cols * TILE, this.arena.rows * TILE);
     if (this.playerImg) cam.startFollow(this.playerImg);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.arenaView?.destroy();
+      this.mapView?.destroy();
       this.dialogue?.destroy();
       this.transition?.destroy();
       this.titleLabel?.destroy();
       this.hintLabel?.destroy();
       this.emoteLabel?.destroy();
-      this.arenaView = null;
+      this.mapView = null;
       this.dialogue = null;
       this.transition = null;
       this.titleLabel = null;
@@ -193,15 +203,19 @@ export class HubScene extends Phaser.Scene {
     const npc = this.nearestNpc();
     const board = this.nearBoard();
     const exit = this.inExit();
+    const door = this.inDoor();
     if (npc) {
       this.placeEmote(npc.entity);
       this.hintLabel?.setText("A: TALK");
     } else if (board) {
       this.emoteLabel?.setVisible(false);
       this.hintLabel?.setText("A: READ");
+    } else if (door) {
+      this.emoteLabel?.setVisible(false);
+      this.hintLabel?.setText(`A: ${door.label}`);
     } else if (exit) {
       this.emoteLabel?.setVisible(false);
-      this.hintLabel?.setText("A: LEAVE");
+      this.hintLabel?.setText(`A: ${this.hub.exitLabel ?? "LEAVE"}`);
     } else {
       this.emoteLabel?.setVisible(false);
       this.hintLabel?.setText("ARROWS: MOVE");
@@ -214,23 +228,46 @@ export class HubScene extends Phaser.Scene {
     } else if (board) {
       confirmSfx();
       this.openBoard();
+    } else if (door) {
+      confirmSfx();
+      this.useDoor(door);
     } else if (exit) {
       confirmSfx();
       this.scene.start("StoryScene");
     }
   }
 
+  private composed(): ReturnType<typeof composeMap> {
+    return composeMap(this.hub.layout.rows, this.hub.layout.stamps);
+  }
+
   private buildArena(): void {
-    const rows = this.hub.rows;
-    const cols = rows[0]?.length ?? 0;
-    const solid: boolean[] = [];
-    for (const row of rows) for (const ch of row) solid.push(ch === "#");
-    this.arena = { cols, rows: rows.length, tileSize: TILE, solid };
+    const map = this.composed();
+    this.arena = {
+      cols: map.cols,
+      rows: map.rows,
+      tileSize: TILE,
+      solid: map.solid,
+    };
+  }
+
+  private useDoor(door: HubDoor): void {
+    // Confirm can repeat during the fade; start only one restart.
+    if (this.leaving) return;
+    this.leaving = true;
+    const go = (): void => {
+      this.scene.start("HubScene", { hub: door.to, spawn: door.spawn });
+    };
+    // A failed fade must not strand the player in the door.
+    (this.transition?.fadeOut(240) ?? Promise.resolve()).then(go, (err) => {
+      console.error("hub door fade failed", err);
+      go();
+    });
   }
 
   private spawnActors(): void {
     let nextId = 1;
-    const spawn = tileCenter(this.hub.spawn.col, this.hub.spawn.row);
+    const spawn = tileCenter(this.spawnAt.col, this.spawnAt.row);
     this.player = createEntity(
       nextId++,
       "player",
@@ -290,10 +327,8 @@ export class HubScene extends Phaser.Scene {
   }
 
   private buildMarkers(): void {
-    const board = tileCenter(this.hub.board.col, this.hub.board.row);
-    this.add
-      .rectangle(board.x, board.y, 10, 12, 0x8a5a2a)
-      .setDepth(DEPTH.groundFx);
+    // The board is drawn by its map stamp, so only the exit needs a marker.
+    if (!this.hub.exit) return;
     const { col, row, w, h } = this.hub.exit;
     this.add
       .rectangle(
@@ -364,7 +399,7 @@ export class HubScene extends Phaser.Scene {
   }
 
   private nearBoard(): boolean {
-    if (!this.player) return false;
+    if (!this.player || !this.hub.board) return false;
     return (
       dist(
         this.player.pos,
@@ -373,9 +408,14 @@ export class HubScene extends Phaser.Scene {
     );
   }
 
-  private inExit(): boolean {
+  private inZone(zone: {
+    col: number;
+    row: number;
+    w: number;
+    h: number;
+  }): boolean {
     if (!this.player) return false;
-    const { col, row, w, h } = this.hub.exit;
+    const { col, row, w, h } = zone;
     const { x, y } = this.player.pos;
     return (
       x >= col * TILE &&
@@ -383,6 +423,14 @@ export class HubScene extends Phaser.Scene {
       y >= row * TILE &&
       y < (row + h) * TILE
     );
+  }
+
+  private inExit(): boolean {
+    return this.hub.exit ? this.inZone(this.hub.exit) : false;
+  }
+
+  private inDoor(): HubDoor | null {
+    return this.hub.doors.find((d) => this.inZone(d)) ?? null;
   }
 
   private placeEmote(entity: Entity): void {

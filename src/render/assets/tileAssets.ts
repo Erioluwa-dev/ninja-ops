@@ -1,3 +1,4 @@
+import { SHEET_FILES, type SheetKey } from "../../data/hubTiles";
 import { assetUrl } from "./assetUrl";
 import type { AssetEntry } from "./types";
 
@@ -28,3 +29,19 @@ export const TILE_ASSETS = [
     frameHeight: 16,
   },
 ] as const satisfies readonly AssetEntry[];
+
+/** Texture key for a hub tileset sheet. */
+export const hubSheetKey = (sheet: SheetKey): string => `hub-${sheet}`;
+
+const HUB_SHEETS = Object.keys(SHEET_FILES) as SheetKey[];
+
+/** Hub and world tilesets; the arena sheets above stay for battles. */
+export const HUB_TILE_ASSETS: readonly AssetEntry[] = HUB_SHEETS.map(
+  (sheet): AssetEntry => ({
+    type: "spritesheet",
+    key: hubSheetKey(sheet),
+    url: assetUrl(`tiles/${SHEET_FILES[sheet]}`),
+    frameWidth: 16,
+    frameHeight: 16,
+  }),
+);
