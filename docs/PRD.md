@@ -88,7 +88,7 @@ Requirement IDs are for traceability. "Bible §" refers to `docs/STORY_BIBLE.md`
 | N-7 | Fixed-point enforcement: the canon events in §7 must fire in every branch. |
 | N-8 | No-kill invariant: enemies tagged `canon_villain` cannot be reduced below 1 HP by the player, ghost or blade. Their defeat comes from scripted hits by canon characters or the team. |
 | N-9 | Save and load covering flags, meters, unlocks, trust, standings, rumours, current chapter and scene. |
-| N-10 | Hub locations: monastery (rest, forge, corruption reduction) and Ninjago City (Ch 2 onward, gossip board). |
+| N-10 | Hub locations: monastery (rest, forge, corruption reduction) and Ninjago City (Ch 2 onward, gossip board), joined by a small walkable world map (a road from the monastery across the river to the city). The world map holds no story beats or encounters in v1. |
 
 ## 6. State registry
 
