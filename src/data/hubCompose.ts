@@ -35,7 +35,7 @@ export interface ComposedMap {
   solid: boolean[];
 }
 
-const SOLID_GROUND = new Set(["#", "~"]);
+const SOLID_GROUND = new Set(["#", "~", "W"]);
 
 /**
  * Turns map rows and stamp placements into draw layers and a collision grid.
@@ -68,7 +68,9 @@ export function composeMap(
             ? TERRAIN.water
             : ch === "_"
               ? TERRAIN.plaza
-              : null;
+              : ch === "+"
+                ? TERRAIN.court
+                : null;
       if (blob) {
         // A bridge sits on water, so the pond keeps its shape under it.
         const joins = (c: number, r: number): boolean => {
@@ -112,6 +114,23 @@ export function composeMap(
     for (let col = 0; col < width; col++) {
       if (charAt(col, row) === "#" && !covered.has(row * width + col)) {
         stamps.push({ def: FOREST_FILL, col, row });
+      }
+    }
+  }
+  // Wall runs: a palisade face where the wall runs east-west, a rail where
+  // it runs north-south, so an enclosure reads from the top-down camera.
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      if (charAt(col, row) !== "W") continue;
+      const vertical =
+        charAt(col, row - 1) === "W" || charAt(col, row + 1) === "W";
+      const horizontal =
+        charAt(col - 1, row) === "W" || charAt(col + 1, row) === "W";
+      if (vertical && !horizontal) {
+        stamps.push({ def: STAMPS.wallV, col, row });
+      } else {
+        const def = vertical ? STAMPS.wallCorner : STAMPS.wallH;
+        stamps.push({ def, col, row: row - 1 });
       }
     }
   }

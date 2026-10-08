@@ -8,7 +8,14 @@ import {
   type HubNpcDef,
   hubFor,
   type NpcSkin,
+  townsfolkFor,
+  townsfolkKeepClear,
 } from "../data/hubs";
+import {
+  pickWanderTarget,
+  seededRng,
+  type TownspersonDef,
+} from "../data/townsfolk";
 import { createTuning, type Tuning } from "../data/tuning";
 import { PhaserInput } from "../input";
 import { actorFrame, actorSkin } from "../render/actorFrames";
@@ -27,6 +34,12 @@ import type { Entity } from "../sim/types";
 const TILE = 16;
 const SPEED = 62;
 const TALK_DIST = 24;
+// Slow on purpose: townsfolk amble, they do not patrol.
+const WANDER_SPEED = 18;
+const PAUSE_MIN_TICKS = 90;
+const PAUSE_SPAN_TICKS = 150;
+// Stop short of the player so a stroller never walks into them.
+const PLAYER_GAP = 14;
 
 const SKINS: Record<NpcSkin, { kitId: string; mobType: string }> = {
   wu: { kitId: "drillDummy", mobType: "drillDummy" },
@@ -42,9 +55,15 @@ const DEFAULT_RUMOURS = [
 ] as const;
 
 interface NpcActor {
-  def: HubNpcDef;
+  def: Pick<HubNpcDef, "id" | "name" | "lines">;
   entity: Entity;
   img: Phaser.GameObjects.Image;
+  /** Present only for wandering townsfolk. */
+  wander?: {
+    home: { col: number; row: number };
+    target: { col: number; row: number } | null;
+    pause: number;
+  };
 }
 
 type Mode = "roam" | "talk";
@@ -86,6 +105,8 @@ export class HubScene extends Phaser.Scene {
   private lastSpeaker: string | null = null;
   private attackWasHeld = false;
   private leaving = false;
+  private wanderRng: () => number = seededRng(1);
+  private keepClear: (col: number, row: number) => boolean = () => false;
   private spawnAt: { col: number; row: number } = { col: 0, row: 0 };
 
   constructor() {
@@ -200,6 +221,7 @@ export class HubScene extends Phaser.Scene {
     }
     this.movePlayer(actions.moveX, actions.moveY, delta);
     this.paintPlayer();
+    this.updateTownsfolk(delta);
     const npc = this.nearestNpc();
     const board = this.nearBoard();
     const exit = this.inExit();
@@ -294,6 +316,112 @@ export class HubScene extends Phaser.Scene {
       );
       entity.state = "idle";
       this.npcs.push({ def, entity, img: this.paintNew(entity) });
+    }
+    this.keepClear = townsfolkKeepClear(this.hub);
+    this.wanderRng = seededRng(this.hub.townsfolk?.seed ?? 1);
+    for (const def of townsfolkFor(this.hub)) {
+      this.npcs.push(this.spawnTownsperson(def, nextId++));
+    }
+  }
+
+  private spawnTownsperson(def: TownspersonDef, id: number): NpcActor {
+    // Reuse the ally stats for the entity, then swap in the civilian look: the
+    // sim never runs in a hub, so only the renderer reads mobType here.
+    const entity = createEntity(
+      id,
+      "mob",
+      "ninja",
+      "allyNinja",
+      tileCenter(def.col, def.row),
+      { x: 0, y: 1 },
+      this.tuning,
+      "allyKai",
+    );
+    entity.mobType = `civilian${def.look}`;
+    entity.state = "idle";
+    return {
+      def,
+      entity,
+      img: this.paintNew(entity),
+      wander: {
+        home: { col: def.col, row: def.row },
+        target: null,
+        pause: Math.floor(this.wanderRng() * PAUSE_SPAN_TICKS),
+      },
+    };
+  }
+
+  private tileFree(col: number, row: number, self: NpcActor): boolean {
+    if (isSolidTile(this.arena, col, row) || this.keepClear(col, row)) {
+      return false;
+    }
+    if (this.player) {
+      const pc = Math.floor(this.player.pos.x / TILE);
+      const pr = Math.floor(this.player.pos.y / TILE);
+      if (Math.abs(pc - col) <= 1 && Math.abs(pr - row) <= 1) return false;
+    }
+    return !this.npcs.some((o) => {
+      if (o === self) return false;
+      const oc = o.wander?.target?.col ?? Math.floor(o.entity.pos.x / TILE);
+      const or = o.wander?.target?.row ?? Math.floor(o.entity.pos.y / TILE);
+      return oc === col && or === row;
+    });
+  }
+
+  private updateTownsfolk(delta: number): void {
+    const step = (WANDER_SPEED * Math.min(delta, 50)) / 1000;
+    for (const npc of this.npcs) {
+      const w = npc.wander;
+      if (!w) continue;
+      const e = npc.entity;
+      if (w.target) {
+        const goal = tileCenter(w.target.col, w.target.row);
+        const dx = goal.x - e.pos.x;
+        const dy = goal.y - e.pos.y;
+        const left = Math.hypot(dx, dy);
+        const blocked =
+          this.player !== null &&
+          dist(this.player.pos, goal) < PLAYER_GAP &&
+          dist(this.player.pos, e.pos) < PLAYER_GAP * 2;
+        if (blocked) {
+          e.state = "idle";
+        } else if (left <= step) {
+          e.pos.x = goal.x;
+          e.pos.y = goal.y;
+          w.target = null;
+          w.pause =
+            PAUSE_MIN_TICKS + Math.floor(this.wanderRng() * PAUSE_SPAN_TICKS);
+          e.state = "idle";
+        } else {
+          e.pos.x += (dx / left) * step;
+          e.pos.y += (dy / left) * step;
+          e.facing =
+            Math.abs(dx) > Math.abs(dy)
+              ? { x: Math.sign(dx), y: 0 }
+              : { x: 0, y: Math.sign(dy) };
+          e.state = "move";
+        }
+      } else if (w.pause > 0) {
+        w.pause -= 1;
+      } else {
+        const cur = {
+          col: Math.floor(e.pos.x / TILE),
+          row: Math.floor(e.pos.y / TILE),
+        };
+        w.target = pickWanderTarget(w.home, cur, this.wanderRng, (c, r) =>
+          this.tileFree(c, r, npc),
+        );
+        if (!w.target) {
+          w.pause =
+            PAUSE_MIN_TICKS + Math.floor(this.wanderRng() * PAUSE_SPAN_TICKS);
+        }
+      }
+      const look = actorFrame(e, this.tuning, this.tick);
+      npc.img
+        .setTexture(look.textureKey, look.frame)
+        .setFlipX(look.flipX)
+        .setPosition(Math.round(e.pos.x), Math.round(e.pos.y + e.feet.h / 2))
+        .setDepth(actorDepth(e.pos.y, e.id));
     }
   }
 

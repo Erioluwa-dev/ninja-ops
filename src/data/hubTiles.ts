@@ -11,7 +11,8 @@ export type SheetKey =
   | "water"
   | "element"
   | "detail"
-  | "village";
+  | "village"
+  | "interior";
 
 export const SHEET_FILES: Record<SheetKey, string> = {
   floor: "TilesetFloor.png",
@@ -21,6 +22,7 @@ export const SHEET_FILES: Record<SheetKey, string> = {
   element: "TilesetElement.png",
   detail: "TilesetFloorDetail.png",
   village: "TilesetVillageAbandoned.png",
+  interior: "floor-interior-stone.png",
 };
 
 export const SHEET_COLS: Record<SheetKey, number> = {
@@ -31,6 +33,7 @@ export const SHEET_COLS: Record<SheetKey, number> = {
   element: 16,
   detail: 16,
   village: 20,
+  interior: 22,
 };
 
 export interface Cell {
@@ -44,7 +47,7 @@ export function frameOf(cell: Cell): number {
 }
 
 /** Ground characters used in map rows. */
-export type GroundChar = "." | "," | "~" | "=" | "#" | "_";
+export type GroundChar = "." | "," | "~" | "=" | "#" | "_" | "+" | "W";
 
 /**
  * A terrain painted over a base with the pack's 4x4 blob layout: a 3x3
@@ -119,10 +122,12 @@ export const GRASS: readonly Cell[] = [
   { sheet: "floor", col: 3, row: 12 },
 ];
 
-export const TERRAIN: Record<"path" | "water" | "plaza", Blob> = {
+export const TERRAIN: Record<"path" | "water" | "plaza" | "court", Blob> = {
   path: { sheet: "floor", col: 0, row: 7 },
   water: { sheet: "water", col: 0, row: 6 },
   plaza: { sheet: "floor", col: 0, row: 0 },
+  /** Monastery courtyard: framed sandstone paving. */
+  court: { sheet: "interior", col: 11, row: 0 },
 };
 
 /** Wooden boardwalk: a plain plank tile. */
@@ -196,6 +201,12 @@ export const STAMPS = {
   flowers: stamp("detail", 5, 2, 1, 1, 0),
   grassTuft: stamp("detail", 3, 2, 1, 1, 0),
   leaves: stamp("detail", 0, 0, 1, 1, 0),
+  medallion: stamp("interior", 15, 0, 4, 4, 0),
+  wallH: stamp("house", 10, 4, 1, 2, 1),
+  wallV: stamp("house", 11, 7, 1, 1, 1),
+  wallCorner: stamp("house", 8, 4, 1, 2, 1),
+  tower: stamp("house", 19, 3, 3, 6, 3),
+  dummy: stamp("element", 11, 0, 1, 1, 1),
 } as const satisfies Record<string, StampDef>;
 
 export type StampId = keyof typeof STAMPS;

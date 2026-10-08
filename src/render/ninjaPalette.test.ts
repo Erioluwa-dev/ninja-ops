@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CIVILIAN_RECIPES,
   isSuitPixel,
   recolorPixel,
   recolorRgba,
@@ -62,5 +63,16 @@ describe("ninja suit palette", () => {
     recolorRgba(data, SUIT_RECIPES.kai);
     expect(data[0]).toBeGreaterThan(data[1] ?? 0);
     expect([...data.slice(4)]).toEqual([...OUTLINE]);
+  });
+});
+
+describe("civilian palette", () => {
+  it("has six looks distinct from each other and from the ninja suits", () => {
+    expect(CIVILIAN_RECIPES).toHaveLength(6);
+    const outputs = [...CIVILIAN_RECIPES, ...Object.values(SUIT_RECIPES)].map(
+      (r) => recolorPixel(GREEN, r).join(","),
+    );
+    expect(new Set(outputs).size).toBe(outputs.length);
+    expect(new Set([GREEN.join(",")]).has(outputs[0] ?? "")).toBe(false);
   });
 });

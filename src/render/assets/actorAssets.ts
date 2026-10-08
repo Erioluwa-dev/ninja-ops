@@ -15,6 +15,12 @@ export const ACTOR_KEY = {
   allyJay: "actor-ally-jay",
   allyZane: "actor-ally-zane",
   allyCole: "actor-ally-cole",
+  civilian0: "actor-civilian-0",
+  civilian1: "actor-civilian-1",
+  civilian2: "actor-civilian-2",
+  civilian3: "actor-civilian-3",
+  civilian4: "actor-civilian-4",
+  civilian5: "actor-civilian-5",
 } as const;
 
 /**

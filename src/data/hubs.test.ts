@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { composeMap } from "./hubCompose";
-import { DEFAULT_HUB, HUBS, hubFor, validateHubs } from "./hubs";
+import {
+  DEFAULT_HUB,
+  HUBS,
+  hubFor,
+  townsfolkFor,
+  townsfolkKeepClear,
+  validateHubs,
+} from "./hubs";
+import { pickWanderTarget, seededRng, WANDER_RADIUS } from "./townsfolk";
 
 describe("hubs", () => {
   it("ships valid monastery, world and city maps", () => {
@@ -88,5 +96,53 @@ describe("hubs", () => {
         ).toBe(true);
       }
     }
+  });
+
+  it("keeps the team and Wu at the monastery only", () => {
+    const team = ["wu", "kai", "jay", "zane", "cole"];
+    for (const key of ["city", "world"]) {
+      const ids = hubFor(key).npcs.map((n) => n.id);
+      expect(ids.filter((id) => team.includes(id))).toEqual([]);
+    }
+  });
+
+  it("places the requested townsfolk on reachable floor", () => {
+    expect(townsfolkFor(hubFor("city"))).toHaveLength(8);
+    expect(townsfolkFor(hubFor("world"))).toHaveLength(5);
+    expect(townsfolkFor(hubFor("monastery"))).toHaveLength(0);
+    for (const key of ["city", "world"]) {
+      const hub = hubFor(key);
+      const clear = townsfolkKeepClear(hub);
+      const ids = new Set<string>();
+      for (const t of townsfolkFor(hub)) {
+        expect(clear(t.col, t.row), t.id).toBe(false);
+        expect(ids.has(t.id)).toBe(false);
+        ids.add(t.id);
+        expect(t.lines.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("places townsfolk deterministically per seed", () => {
+    const city = hubFor("city");
+    expect(townsfolkFor(city)).toEqual(townsfolkFor(city));
+    const other = townsfolkFor({
+      ...city,
+      townsfolk: city.townsfolk && { ...city.townsfolk, seed: 99 },
+    });
+    expect(other).not.toEqual(townsfolkFor(city));
+  });
+
+  it("wanders 1-3 tiles, within the radius and only onto free tiles", () => {
+    const rng = seededRng(5);
+    const home = { col: 10, row: 10 };
+    for (let i = 0; i < 200; i++) {
+      const t = pickWanderTarget(home, home, rng, () => true);
+      if (!t) continue;
+      const d = Math.abs(t.col - home.col) + Math.abs(t.row - home.row);
+      expect(d).toBeGreaterThanOrEqual(1);
+      expect(d).toBeLessThanOrEqual(Math.min(3, WANDER_RADIUS));
+    }
+    expect(pickWanderTarget(home, home, rng, () => false)).toBeNull();
   });
 });

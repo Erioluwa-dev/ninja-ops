@@ -19,6 +19,19 @@ export const SUIT_RECIPES: Record<NinjaColor, SuitRecipe> = {
   cole: { hue: 230, satScale: 0.14, valScale: 0.55, valLift: 0.04 },
 };
 
+/**
+ * Townsfolk tunics. Hues and values are kept away from the four ninja suits
+ * (red, blue, white, black) and the green player: earthy or muted colours only.
+ */
+export const CIVILIAN_RECIPES: readonly SuitRecipe[] = [
+  { hue: 28, satScale: 0.9, valScale: 0.75, valLift: 0 }, // brown
+  { hue: 210, satScale: 0.1, valScale: 0.95, valLift: 0 }, // grey
+  { hue: 285, satScale: 0.9, valScale: 0.95, valLift: 0 }, // purple
+  { hue: 30, satScale: 1.6, valScale: 1.25, valLift: 0 }, // orange
+  { hue: 175, satScale: 1.1, valScale: 1.0, valLift: 0 }, // teal
+  { hue: 345, satScale: 1.0, valScale: 0.7, valLift: 0 }, // maroon
+];
+
 // The green sheet's suit is olive (hue ~57), green (~110) and teal (~167).
 // Skin and sash sit near 10-25 degrees, the eye whites have no saturation and
 // the outline is very dark, so a hue/saturation/value window isolates the suit.

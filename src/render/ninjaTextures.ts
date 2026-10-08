@@ -1,6 +1,12 @@
 import type Phaser from "phaser";
 import { ACTOR_KEY } from "./assets";
-import { type NinjaColor, recolorRgba, SUIT_RECIPES } from "./ninjaPalette";
+import {
+  CIVILIAN_RECIPES,
+  type NinjaColor,
+  recolorRgba,
+  SUIT_RECIPES,
+  type SuitRecipe,
+} from "./ninjaPalette";
 
 const ALLY_KEYS: Record<NinjaColor, string> = {
   kai: ACTOR_KEY.allyKai,
@@ -8,6 +14,27 @@ const ALLY_KEYS: Record<NinjaColor, string> = {
   zane: ACTOR_KEY.allyZane,
   cole: ACTOR_KEY.allyCole,
 };
+
+const CIVILIAN_KEYS = [
+  ACTOR_KEY.civilian0,
+  ACTOR_KEY.civilian1,
+  ACTOR_KEY.civilian2,
+  ACTOR_KEY.civilian3,
+  ACTOR_KEY.civilian4,
+  ACTOR_KEY.civilian5,
+] as const;
+
+/** Texture key per palette-swapped sheet, with the recipe that makes it. */
+const SWAPS: readonly { key: string; recipe: SuitRecipe }[] = [
+  ...(Object.keys(ALLY_KEYS) as NinjaColor[]).map((c) => ({
+    key: ALLY_KEYS[c],
+    recipe: SUIT_RECIPES[c],
+  })),
+  ...CIVILIAN_KEYS.flatMap((key, i) => {
+    const recipe = CIVILIAN_RECIPES[i];
+    return recipe ? [{ key, recipe }] : [];
+  }),
+];
 
 const FRAME = 32;
 
@@ -23,8 +50,7 @@ export function buildNinjaTextures(scene: Phaser.Scene): void {
   ) {
     return;
   }
-  for (const color of Object.keys(ALLY_KEYS) as NinjaColor[]) {
-    const key = ALLY_KEYS[color];
+  for (const { key, recipe } of SWAPS) {
     if (scene.textures.exists(key)) continue;
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
@@ -33,7 +59,7 @@ export function buildNinjaTextures(scene: Phaser.Scene): void {
     if (!ctx) continue;
     ctx.drawImage(source, 0, 0);
     const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    recolorRgba(image.data, SUIT_RECIPES[color]);
+    recolorRgba(image.data, recipe);
     ctx.putImageData(image, 0, 0);
     const texture = scene.textures.addCanvas(key, canvas);
     if (!texture) continue;

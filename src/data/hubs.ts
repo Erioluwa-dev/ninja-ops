@@ -1,5 +1,10 @@
 import { composeMap } from "./hubCompose";
 import { CITY_MAP, type MapLayout, MONASTERY_MAP, WORLD_MAP } from "./hubMaps";
+import {
+  placeTownsfolk,
+  type TownsfolkSpec,
+  type TownspersonDef,
+} from "./townsfolk";
 
 /** Walkable hub maps; collision comes from the composed layout. */
 
@@ -21,6 +26,8 @@ export interface HubDef {
   layout: MapLayout;
   spawn: { col: number; row: number };
   npcs: readonly HubNpcDef[];
+  /** Random civilians; placed deterministically from the spec seed. */
+  townsfolk?: TownsfolkSpec;
   /** Gossip board tile; reading it shows the current rumours. */
   board?: { col: number; row: number };
   /** Floor zone that leaves back to the story. */
@@ -99,13 +106,13 @@ export const HUBS: Record<string, HubDef> = {
         lines: ["Your guard opens on the left. Again."],
       },
     ],
-    board: { col: 31, row: 15 },
+    board: { col: 12, row: 20 },
     exit: { col: 19, row: 5, w: 2, h: 1 },
     exitLabel: "HALL",
     doors: [
       {
-        col: 19,
-        row: 25,
+        col: 18,
+        row: 27,
         w: 4,
         h: 1,
         to: "world",
@@ -119,53 +126,19 @@ export const HUBS: Record<string, HubDef> = {
     title: "Ninjago City",
     layout: CITY_MAP,
     spawn: { col: 19, row: 23 },
-    npcs: [
-      {
-        id: "wu",
-        name: "WU",
-        skin: "wu",
-        col: 20,
-        row: 9,
-        facing: DOWN,
-        lines: ["The city is nervous. Listen before you act."],
-      },
-      {
-        id: "kai",
-        name: "KAI",
-        skin: "kai",
-        col: 10,
-        row: 9,
-        facing: DOWN,
-        lines: ["Skulkin in the market? Not on my watch."],
-      },
-      {
-        id: "jay",
-        name: "JAY",
-        skin: "jay",
-        col: 28,
-        row: 9,
-        facing: DOWN,
-        lines: ["Heard the rumours? Half of them are about you!"],
-      },
-      {
-        id: "zane",
-        name: "ZANE",
-        skin: "zane",
-        col: 17,
-        row: 14,
-        facing: UP,
-        lines: ["The board changes after every mission. Read it."],
-      },
-      {
-        id: "cole",
-        name: "COLE",
-        skin: "cole",
-        col: 10,
-        row: 17,
-        facing: UP,
-        lines: ["Stick together in the streets."],
-      },
-    ],
+    // The team and Wu live at the monastery only; the city is for civilians.
+    npcs: [],
+    townsfolk: {
+      count: 8,
+      seed: 4107,
+      label: "CITIZEN",
+      areas: [
+        { col: 2, row: 2, w: 36, h: 3 },
+        { col: 2, row: 8, w: 36, h: 2 },
+        { col: 13, row: 10, w: 14, h: 7 },
+        { col: 2, row: 18, w: 36, h: 6 },
+      ],
+    },
     board: { col: 15, row: 16 },
     doors: [
       {
@@ -185,6 +158,15 @@ export const HUBS: Record<string, HubDef> = {
     layout: WORLD_MAP,
     spawn: { col: 13, row: 2 },
     npcs: [],
+    townsfolk: {
+      count: 5,
+      seed: 2290,
+      label: "VILLAGER",
+      areas: [
+        { col: 35, row: 3, w: 17, h: 14 },
+        { col: 39, row: 24, w: 13, h: 9 },
+      ],
+    },
     doors: [
       {
         col: 13,
@@ -215,6 +197,43 @@ export function hubFor(key: string): HubDef {
   const found = HUBS[key] ?? HUBS[DEFAULT_HUB];
   if (!found) throw new Error(`Unknown hub: ${key}`);
   return found;
+}
+
+/** Tiles townsfolk must not stand on or wander into. */
+export function townsfolkKeepClear(
+  hub: HubDef,
+): (col: number, row: number) => boolean {
+  const inZone = (
+    z: { col: number; row: number; w: number; h: number },
+    c: number,
+    r: number,
+  ): boolean => c >= z.col && c < z.col + z.w && r >= z.row && r < z.row + z.h;
+  return (c, r) =>
+    // Keep the arrival point open so nobody blocks the player on entry.
+    Math.max(Math.abs(c - hub.spawn.col), Math.abs(r - hub.spawn.row)) <= 2 ||
+    (hub.board !== undefined &&
+      Math.abs(c - hub.board.col) <= 1 &&
+      Math.abs(r - hub.board.row) <= 1) ||
+    (hub.exit !== undefined && inZone(hub.exit, c, r)) ||
+    hub.doors.some((d) => inZone(d, c, r)) ||
+    hub.npcs.some((n) => n.col === c && n.row === r);
+}
+
+/** The hub's civilians, placed on reachable floor; empty when it has none. */
+export function townsfolkFor(hub: HubDef): TownspersonDef[] {
+  if (!hub.townsfolk) return [];
+  const map = composeMap(hub.layout.rows, hub.layout.stamps);
+  return placeTownsfolk(
+    {
+      cols: map.cols,
+      rows: map.rows,
+      solid: map.solid,
+      start: hub.spawn,
+      keepClear: townsfolkKeepClear(hub),
+    },
+    hub.townsfolk,
+    hub.key,
+  );
 }
 
 /** Structural problems with hub maps; empty when sound. */
@@ -312,6 +331,17 @@ export function validateHubs(hubs: Record<string, HubDef>): string[] {
       checkReach(`door ${i}`, d.col, d.row);
     });
     for (const npc of hub.npcs) checkReach(`npc ${npc.id}`, npc.col, npc.row);
+    if (hub.townsfolk) {
+      const folk = townsfolkFor(hub);
+      if (folk.length < hub.townsfolk.count) {
+        problems.push(`${key} placed only ${folk.length} townsfolk`);
+      }
+      for (const t of folk) {
+        checkTile(`townsfolk ${t.id}`, t.col, t.row);
+        checkReach(`townsfolk ${t.id}`, t.col, t.row);
+        if (t.lines.length === 0) problems.push(`${key}/${t.id} is mute`);
+      }
+    }
   }
   return problems;
 }

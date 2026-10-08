@@ -83,6 +83,12 @@ const MOB_SKINS: Record<string, ActorSkin> = {
   allyJay: allySkin(ACTOR_KEY.allyJay),
   allyZane: allySkin(ACTOR_KEY.allyZane),
   allyCole: allySkin(ACTOR_KEY.allyCole),
+  civilian0: allySkin(ACTOR_KEY.civilian0),
+  civilian1: allySkin(ACTOR_KEY.civilian1),
+  civilian2: allySkin(ACTOR_KEY.civilian2),
+  civilian3: allySkin(ACTOR_KEY.civilian3),
+  civilian4: allySkin(ACTOR_KEY.civilian4),
+  civilian5: allySkin(ACTOR_KEY.civilian5),
 };
 
 const DUMMY_SKIN = gridSkin(ACTOR_KEY.dummy);
