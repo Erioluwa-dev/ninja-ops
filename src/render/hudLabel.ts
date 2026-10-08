@@ -131,6 +131,12 @@ export class HudLabel {
     return this;
   }
 
+  /** Pins the label against camera scroll; hubs pin HUD at 0. */
+  setScrollFactor(factor: number): this {
+    for (const layer of this.layers()) layer.setScrollFactor(factor);
+    return this;
+  }
+
   destroy(): void {
     for (const layer of this.layers()) layer.destroy();
   }

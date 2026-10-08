@@ -101,6 +101,14 @@ export class DialogueView {
     this.arrow.setVisible(false);
   }
 
+  /** Pins the box against camera scroll; hubs pin HUD at 0. */
+  setScrollFactor(factor: number): void {
+    this.panel.setScrollFactor(factor);
+    this.name.setScrollFactor(factor);
+    this.body.setScrollFactor(factor);
+    this.arrow.setScrollFactor(factor);
+  }
+
   /** Call once per render frame while visible. */
   update(): void {
     if (!this.visible) return;
