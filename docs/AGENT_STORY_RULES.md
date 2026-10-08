@@ -98,6 +98,6 @@ At the start of a session on this project:
 
 - Do not reveal the heritage, or write lore that implies it beyond the Bible's hints.
 - Do not give the player, ghost or blade a finishing blow on a canon villain, even in a cutscene.
-- Do not use official LEGO or Ninjago art, music or text.
+- Do not use official LEGO or Ninjago art, music or text (ripped or traced assets). Fan-made sprites and art of canon characters, drawn or generated to look like them, are allowed.
 - Do not add Chapter 4+ content, Dragons Rising content, or features outside the PRD without asking.
 - Do not rename flags, scenes or moves without updating the PRD and Bible in the same change.

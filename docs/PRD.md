@@ -170,4 +170,4 @@ Each item has a default so work can continue. Update the status when decided.
 
 ## 12. Legal note
 
-This is fan work on LEGO's Ninjago property, built for personal use. Do not use official LEGO or Ninjago art, music or text. Keep the project non-commercial. Check licences for any third-party asset packs.
+This is fan work on LEGO's Ninjago property, built for personal use. Do not use official LEGO or Ninjago art, music or text; fan-made sprites of canon characters are allowed. Keep the project non-commercial. Check licences for any third-party asset packs.
