@@ -10,6 +10,11 @@ export const ACTOR_KEY = {
   bruteIdle: "actor-brute-idle",
   bruteWalk: "actor-brute-walk",
   bruteHit: "actor-brute-hit",
+  // Built at runtime by buildNinjaTextures, not loaded from a file.
+  allyKai: "actor-ally-kai",
+  allyJay: "actor-ally-jay",
+  allyZane: "actor-ally-zane",
+  allyCole: "actor-ally-cole",
 } as const;
 
 /**

@@ -15,6 +15,7 @@ import { preloadAssets } from "../render/assets";
 import { DialogueView } from "../render/DialogueView";
 import { actorDepth, DEPTH } from "../render/depth";
 import { HudLabel, registerHudFont } from "../render/hudLabel";
+import { buildNinjaTextures } from "../render/ninjaTextures";
 import { browserStore, loadStory } from "../render/storyStorage";
 import { TransitionView } from "../render/TransitionView";
 import { type Arena, isSolidTile, type SimState } from "../sim";
@@ -102,6 +103,7 @@ export class HubScene extends Phaser.Scene {
   }
 
   create(): void {
+    buildNinjaTextures(this);
     registerHudFont(this);
     this.tuning = createTuning();
     this.buildArena();

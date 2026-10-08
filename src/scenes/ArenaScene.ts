@@ -5,6 +5,7 @@ import type { TuningPanel } from "../dev/tuningPanel";
 import { PhaserInput } from "../input";
 import { SimRenderer } from "../render";
 import { preloadAssets } from "../render/assets";
+import { buildNinjaTextures } from "../render/ninjaTextures";
 import {
   type ActionFrame,
   canRestart,
@@ -79,6 +80,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   create(): void {
+    buildNinjaTextures(this);
     // A story fight skips the intro panel: the story already set the scene.
     this.state = this.launch
       ? this.createStoryFight(this.launch)

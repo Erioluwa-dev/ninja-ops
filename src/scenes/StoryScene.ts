@@ -14,6 +14,7 @@ import { preloadAssets } from "../render/assets";
 import { ChoiceView } from "../render/ChoiceView";
 import { DialogueView } from "../render/DialogueView";
 import { HudLabel, registerHudFont } from "../render/hudLabel";
+import { buildNinjaTextures } from "../render/ninjaTextures";
 import { StoryStageView } from "../render/StoryStageView";
 import {
   browserStore,
@@ -80,6 +81,7 @@ export class StoryScene extends Phaser.Scene {
   }
 
   create(): void {
+    buildNinjaTextures(this);
     registerHudFont(this);
     this.store = browserStore();
     this.queue = [];

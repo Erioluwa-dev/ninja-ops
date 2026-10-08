@@ -56,13 +56,9 @@ const gridSkin = (key: string, tint: number | null = null): ActorSkin => ({
 // The repo ships no skeleton sheet, so the Skulkin reuse existing art washed
 // bone-white until one is added from the Ninja Adventure pack.
 const BONE = 0xe8e4c8;
-const NINJA_TINTS = {
-  allyKai: 0xff6a5a,
-  allyJay: 0x5a9aff,
-  allyZane: 0xe8f4ff,
-  allyCole: 0x7a7a8a,
-} as const;
-const allySkin = (tint: number): ActorSkin => ({ ...NINJA_SKIN, tint });
+// A multiply tint cannot turn the green suit red, so allies use palette-swapped
+// copies of the sheet (see buildNinjaTextures) and need no tint.
+const allySkin = (key: string): ActorSkin => ({ ...NINJA_SKIN, key });
 
 const BRUTE_SKIN: ActorSkin = {
   layout: "brute",
@@ -83,10 +79,10 @@ const MOB_SKINS: Record<string, ActorSkin> = {
   skulkinGrunt: gridSkin(ACTOR_KEY.melee, BONE),
   skulkinGeneral: { ...BRUTE_SKIN, tint: BONE },
   drillDummy: gridSkin(ACTOR_KEY.dummy),
-  allyKai: allySkin(NINJA_TINTS.allyKai),
-  allyJay: allySkin(NINJA_TINTS.allyJay),
-  allyZane: allySkin(NINJA_TINTS.allyZane),
-  allyCole: allySkin(NINJA_TINTS.allyCole),
+  allyKai: allySkin(ACTOR_KEY.allyKai),
+  allyJay: allySkin(ACTOR_KEY.allyJay),
+  allyZane: allySkin(ACTOR_KEY.allyZane),
+  allyCole: allySkin(ACTOR_KEY.allyCole),
 };
 
 const DUMMY_SKIN = gridSkin(ACTOR_KEY.dummy);
